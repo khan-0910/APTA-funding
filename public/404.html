@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>APTA Empowers</title>
+    <script>
+      // GitHub Pages SPA fallback: convert /APTA-funding/<route> 404s into
+      // query params and redirect to index.html, which restores the route.
+      (function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search
+            .slice(1)
+            .split('&')
+            .map(function (s) {
+              return s.replace(/~and~/g, '&')
+            })
+            .join('?')
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash)
+        }
+      })(window.location)
+    </script>
+    <script>
+      // Remember the deep-link route, then send the browser to the app shell.
+      // (main.tsx consumes this on boot to restore the full URL under /APTA-funding/.)
+      try {
+        sessionStorage.setItem('apta-redirect',
+          l.pathname.replace(/\/+$/, '') + l.search + l.hash)
+      } catch (e) { /* private mode */ }
+      window.location.replace('/APTA-funding/')
+ </script>
+  </head>
+  <body></body>
+</html>
