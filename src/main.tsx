@@ -19,10 +19,24 @@ import { AccountingPage } from '@/pages/AccountingPage'
 import { PartnersPage } from '@/pages/PartnersPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
-// GitHub Pages serves the app from /APTA-funding/ — restore deep links saved by
-// public/404.html (Pages has no server rewrite, so 404.html stages the path).
+// GitHub Pages serves the app from /APTA-funding/ — restore deep links staged
+// by public/404.html (Pages has no server rewrite, so 404.html stages the path).
+// The route arrives as a ?r= query param: query params survive the extra
+// document load GitHub Pages can perform after the fallback redirect, which
+// sessionStorage-based staging did not.
 function restoreDeepLink(): void {
   try {
+    const url = new URL(window.location.href)
+    const staged = url.searchParams.get('r')
+    if (staged !== null) {
+      url.searchParams.delete('r')
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+      if (staged.startsWith('/APTA-funding/')) {
+        window.history.replaceState(null, '', staged)
+        return
+      }
+    }
+    // Legacy path: sessionStorage staging from previously cached 404.html.
     const saved = sessionStorage.getItem('apta-redirect')
     if (saved && saved.includes('/APTA-funding/')) {
       sessionStorage.removeItem('apta-redirect')
