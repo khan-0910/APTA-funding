@@ -58,8 +58,8 @@ export function LoginPage() {
         </p>
 
         <p className="mt-4 text-center text-xs text-surface-400 dark:text-surface-500">
-          Accounts are created by you — register as Student, Staff, or Admin to begin.
-          <span className="ta block">கணக்குகளை நீங்களே உருவாக்கலாம் — மாணவர், ஊழியர் அல்லது நிர்வாகியாக பதிவு செய்யுங்கள்.</span>
+          Students register here; Staff and Admin accounts are created by the organisation's Admin.
+          <span className="ta block">மாணவர்கள் இங்கே பதிவு செய்யலாம்; ஊழியர் மற்றும் நிர்வாகி கணக்குகளை நிர்வாகி உருவாக்குவார்.</span>
         </p>
       </div>
     </div>

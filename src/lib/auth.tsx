@@ -14,6 +14,8 @@ export interface AuthResult {
 interface AuthShape {
   user: UserAccount | null
   isAuthReady: boolean
+  /** True once at least one admin account exists — gates staff/admin self-registration. */
+  adminExists: boolean
   signIn: (email: string, password: string) => Promise<AuthResult>
   register: (name: string, email: string, password: string, role: UserRole) => Promise<AuthResult>
   signOut: () => Promise<void>
@@ -108,6 +110,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (store.accounts.some((a) => a.email.toLowerCase() === normalized)) {
         return { ok: false, error: 'An account with this email already exists.' }
       }
+      // Privileged roles require an organisation admin: either one already exists (so
+      // only a signed-in admin reaches this page's privileged options) or the very
+      // first admin must be seeded from the server side. The UI hides these options;
+      // this check is the backstop against crafted requests.
+      if (role !== 'student') {
+        const signedInAdmin = user?.role === 'admin' && user.status === 'active'
+        if (store.accounts.some((a) => a.role === 'admin') && !signedInAdmin) {
+          await logEvent('ACCOUNT_CREATED', null, normalized, 'failure', role)
+          return { ok: false, error: 'Staff and Admin accounts can only be created by a signed-in Admin / ஊழியர் மற்றும் நிர்வாகி கணக்குகளை நிர்வாகி மட்டுமே உருவாக்க முடியும்.' }
+        }
+        if (!store.accounts.some((a) => a.role === 'admin')) {
+          await logEvent('ACCOUNT_CREATED', null, normalized, 'failure', role)
+          return { ok: false, error: 'No admin exists yet. Have your organisation seed the first admin account from the server / முதல் நிர்வாகி கணக்கை சேவையகத்தில் உருவாக்க வேண்டும்.' }
+        }
+      }
       const account: UserAccount = {
         id: `acc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
         name: name.trim(),
@@ -127,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await logEvent('LOGIN_SUCCESS', account, normalized, 'success', role)
       return { ok: true }
     },
-    [store, logEvent, persistSession],
+    [store, logEvent, persistSession, user],
   )
 
   const signOut = useCallback(async () => {
@@ -157,10 +174,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [userId, persistSession],
   )
 
+  const adminExists = useMemo(() => store.accounts.some((a) => a.role === 'admin'), [store.accounts])
+
   const value = useMemo<AuthShape>(
     () => ({
       user,
       isAuthReady,
+      adminExists,
       signIn,
       register,
       signOut,
@@ -168,7 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setDevRole,
       devRoleOverride,
     }),
-    [user, isAuthReady, signIn, register, signOut, can, setDevRole, devRoleOverride],
+    [user, isAuthReady, adminExists, signIn, register, signOut, can, setDevRole, devRoleOverride],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

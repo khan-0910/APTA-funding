@@ -1,12 +1,16 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { HeartHandshake } from 'lucide-react'
+import { HeartHandshake, ShieldAlert } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { Field } from '@/components/ui'
 import type { UserRole } from '@/types'
 
 export function RegisterPage() {
-  const { register } = useAuth()
+  const { register, adminExists, user } = useAuth()
+  // Privileged roles appear only when an admin exists AND the visitor is signed in
+  // (the org admin creating colleagues). register() enforces the same rule server-side
+  // of the UI as a backstop.
+  const canManage = adminExists && !!user
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -20,6 +24,10 @@ export function RegisterPage() {
     setError('')
     if (password.length < 6) {
       setError('Password must be at least 6 characters / கடவுச்சொல் குறைந்தது 6 எழுத்துகள்.')
+      return
+    }
+    if ((role === 'admin' || role === 'staff') && !canManage) {
+      setError('Staff and Admin accounts can only be created by a signed-in Admin / ஊழியர் மற்றும் நிர்வாகி கணக்குகளை நிர்வாகி மட்டுமே உருவாக்க முடியும்.')
       return
     }
     setBusy(true)
@@ -57,10 +65,19 @@ export function RegisterPage() {
           <Field label="I am registering as" labelTa="பதிவு செய்யும் வகை" required>
             <select className="input-base" value={role} onChange={(e) => setRole(e.target.value as UserRole)}>
               <option value="student">Student / மாணவர்</option>
-              <option value="staff">Staff / ஊழியர்</option>
-              <option value="admin">Admin / நிர்வாகி</option>
+              {canManage && <option value="staff">Staff / ஊழியர்</option>}
+              {canManage && <option value="admin">Admin / நிர்வாகி</option>}
             </select>
           </Field>
+          {!canManage && (
+            <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Staff and Admin accounts are created by an organisation Admin after signing in.
+                <span className="ta block">ஊழியர் மற்றும் நிர்வாகி கணக்குகளை நிர்வாகி உள்நுழைந்த பிறகு உருவாக்குவார்.</span>
+              </span>
+            </p>
+          )}
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300">{error}</p>}
           <button className="btn-primary w-full" disabled={busy}>
             {busy ? 'Creating account…' : 'Create Account / கணக்கை உருவாக்கு'}
