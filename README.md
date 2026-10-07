@@ -16,9 +16,10 @@ npm run typecheck  # tsc -b only
 
 ## Your Data, From Zero
 
-The app ships with **no mock data**. On first run everything is empty — create your own
-accounts at `/register` (Student, Staff, or Admin) and fill in your own applications,
-beneficiaries, partners, ledger entries, and reports.
+The app ships with **no mock data**. On first run everything is empty — students register
+themselves at `/register`; **Staff and Admin accounts are created by a signed-in Admin**
+(also via `/register`, where the privileged roles appear only for them). Fill in your own
+applications, beneficiaries, partners, ledger entries, and reports.
 
 A DEV role switcher in the header instantly toggles Student / Staff / Admin views without
 logging out (handy for trying each role against your own data).
@@ -35,6 +36,36 @@ logging out (handy for trying each role against your own data).
 
 Without Supabase configured, the app runs entirely on this device's localStorage with the
 same behavior and no errors.
+
+## Authentication & the Supabase Auth migration
+
+Sign-in tries **Supabase Auth first**, then falls back to the legacy custom-hash check, so
+accounts migrated in either order keep working. Password reset (“Forgot password?” on the
+sign-in page) uses Supabase Auth emails and lands on `/reset`.
+
+One-time migration runbook (Dashboard → SQL Editor + Authentication settings):
+
+1. **Dashboard → Authentication**:
+   - Providers → keep **Email** enabled.
+   - Sign In / Up → turn **OFF “Confirm email”** (no SMTP/confirmation flow yet).
+   - URL Configuration → Site URL: `https://khan-0910.github.io/APTA-funding/`.
+2. **Run `supabase/auth-migration-part1.sql`** (idempotent, backwards-safe): adds
+   `user_accounts.auth_uid`, authenticated-role policies (deletes admin-only), and a
+   signup trigger that auto-creates the profile row — always with role `student`;
+   client-supplied roles are never trusted.
+3. **Seed the existing admin/staff accounts** into Auth (one-time): sign up each email at
+   `/register`, or insert via SQL, then link and promote from the SQL editor:
+   ```sql
+   update user_accounts set auth_uid = (select id from auth.users where email = 'admin@aptaempowers.org')
+     where email = 'admin@aptaempowers.org' and role = 'admin';
+   update user_accounts set auth_uid = (select id from auth.users where email = 'staff@aptaempowers.org')
+     where email = 'staff@aptaempowers.org' and role = 'staff';
+   ```
+   Users whose row has an `auth_uid` must sign in with their **Auth password** (the legacy
+   hash is ignored for them).
+4. **Lock down (part 2, only after step 3 is verified)**: drop the legacy anon-CRUD
+   policies so every table requires a real Auth session; keep a read-only policy for the
+   landing-page stats. Script: `supabase/auth-migration-part2.sql`.
 
 ## Feature Map
 
