@@ -150,6 +150,8 @@ export interface UserAccount {
   name: string
   email: string
   passwordHash: string
+  /** auth.users id once the profile is linked to a real Supabase Auth account. */
+  authUid: string | null
   role: UserRole
   status: 'active' | 'disabled'
   loginCount: number

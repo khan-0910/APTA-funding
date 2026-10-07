@@ -9,6 +9,7 @@ import { AppShell } from '@/components/AppShell'
 import { LandingPage } from '@/pages/LandingPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { NewApplicationPage } from '@/pages/NewApplicationPage'
 import { MyApplicationsPage } from '@/pages/MyApplicationsPage'
 import { ApplicationDetailPage } from '@/pages/ApplicationDetailPage'
@@ -56,6 +57,7 @@ const router = createBrowserRouter([
       { index: true, element: <LandingPage /> },
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
+      { path: 'reset', element: <ResetPasswordPage /> },
       { path: 'applications', element: <MyApplicationsPage /> },
       { path: 'applications/new', element: <NewApplicationPage /> },
       { path: 'applications/:id', element: <ApplicationDetailPage /> },

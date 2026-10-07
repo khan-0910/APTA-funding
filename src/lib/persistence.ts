@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient, type Session, type AuthError } from '@supabase/supabase-js'
 import type {
   Application,
   Beneficiary,
@@ -75,6 +75,78 @@ export function writeLocal(key: string, value: unknown): void {
 }
 
 /* ------------------------------------------------------------------ */
+/* Auth helpers (Supabase Auth migration)                              */
+/* ------------------------------------------------------------------ */
+
+/** Decode the `sub` (auth.users uuid) from a Supabase access token. */
+export function decodeJwtSub(token: string): string | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return typeof payload?.sub === 'string' ? payload.sub : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Current auth.users session, if any. Supabase-js v2 caches it in localStorage
+ * under `sb-<project-ref>-auth-token`; reading it directly keeps this module the
+ * single place that knows about storage details. Returns null when signed out
+ * (i.e. pre-migration behaviour: everything flows through the anon key).
+ */
+export function getSupabaseSession(): Session | null {
+  if (!supabase) return null
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+  const ref = url?.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/i)?.[1]
+  if (!ref) return null
+  try {
+    const raw = window.localStorage.getItem(`sb-${ref}-auth-token`)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { currentSession?: Session }
+    return parsed.currentSession ?? null
+  } catch {
+    return null
+  }
+}
+
+/** True when the error is an RLS/permission failure caused by a missing session. */
+export function isSessionMissingError(err: { message?: string } | null | undefined): boolean {
+  if (!err?.message) return false
+  const m = err.message.toLowerCase()
+  return (
+    m.includes('row-level security') ||
+    m.includes('permission denied') ||
+    m.includes('jwt') ||
+    m.includes('401')
+  )
+}
+
+/**
+ * Read the signed-in user's profile row, matching either the auth.users uuid
+ * (post-migration rows) or the legacy custom text id (pre-migration rows).
+ */
+export async function fetchAuthUserRow(
+  legacyId: string,
+): Promise<{ row: UserAccount | null; error: { message: string } | null }> {
+  if (!supabase) return { row: null, error: { message: 'supabase-not-configured' } }
+  const authUid = decodeJwtSub(getSupabaseSession()?.access_token ?? '')
+  if (authUid) {
+    const byUid = await supabase.from('user_accounts').select('*').eq('auth_uid', authUid).maybeSingle()
+    if (!byUid.error && byUid.data) return { row: fromDbAccount(byUid.data), error: null }
+  }
+  const byId = await supabase.from('user_accounts').select('*').eq('id', legacyId).maybeSingle()
+  if (byId.error) return { row: null, error: byId.error }
+  return { row: byId.data ? fromDbAccount(byId.data) : null, error: null }
+}
+
+/** Anonymous diagnostic: can the anon key read user_accounts right now? */
+export async function probeAnonAccountsRead(): Promise<boolean> {
+  if (!supabase) return false
+  const { error } = await supabase.from('user_accounts').select('id').limit(1)
+  return !error
+}
+
+/* ------------------------------------------------------------------ */
 /* Row mappers (DB snake_case columns <-> domain camelCase types)      */
 /* ------------------------------------------------------------------ */
 
@@ -91,6 +163,7 @@ function toDbAccount(a: UserAccount) {
     login_count: a.loginCount,
     created_at: a.createdAt,
     last_login_at: a.lastLoginAt,
+    ...(a.authUid ? { auth_uid: a.authUid } : {}),
   }
 }
 
@@ -100,6 +173,7 @@ function fromDbAccount(r: any): UserAccount {
     name: r.name ?? 'Unknown',
     email: r.email ?? '',
     passwordHash: r.password_hash ?? '',
+    authUid: r.auth_uid ?? null,
     role: r.role ?? 'student',
     status: r.status ?? 'active',
     loginCount: Number(r.login_count ?? 0),
@@ -275,19 +349,32 @@ function fromDbLoginLog(r: any): LoginLog {
 /* Cloud read                                                          */
 /* ------------------------------------------------------------------ */
 
-/** Fetch every table. Returns null when Supabase is unreachable/misconfigured. */
+/**
+ * Fetch every table. Returns null when Supabase is unreachable/misconfigured.
+ * If the first fetch fails on permission grounds while an Auth session exists
+ * (e.g. the browser refreshed a token mid-boot), it retries once with the
+ * refreshed session before giving up.
+ */
 export async function fetchAllCloud(): Promise<DataState | null> {
   if (!supabase) return null
   try {
-    const [accounts, logs, apps, bens, txns, parts, reports] = await Promise.all([
-      supabase.from('user_accounts').select('*').order('created_at', { ascending: true }),
-      supabase.from('login_logs').select('*').order('timestamp', { ascending: false }).limit(500),
-      supabase.from('applications').select('*').order('created_at', { ascending: false }),
-      supabase.from('beneficiaries').select('*').order('created_at', { ascending: false }),
-      supabase.from('transactions').select('*').order('date', { ascending: false }),
-      supabase.from('partners').select('*').order('created_at', { ascending: true }),
-      supabase.from('progress_reports').select('*').order('submitted_at', { ascending: false }),
-    ])
+    const fetchOnce = async () =>
+      Promise.all([
+        supabase!.from('user_accounts').select('*').order('created_at', { ascending: true }),
+        supabase!.from('login_logs').select('*').order('timestamp', { ascending: false }).limit(500),
+        supabase!.from('applications').select('*').order('created_at', { ascending: false }),
+        supabase!.from('beneficiaries').select('*').order('created_at', { ascending: false }),
+        supabase!.from('transactions').select('*').order('date', { ascending: false }),
+        supabase!.from('partners').select('*').order('created_at', { ascending: true }),
+        supabase!.from('progress_reports').select('*').order('submitted_at', { ascending: false }),
+      ])
+
+    let [accounts, logs, apps, bens, txns, parts, reports] = await fetchOnce()
+    const hasError = (arr: unknown[]) => arr.some((r) => (r as { error: unknown }).error)
+    if (hasError([accounts, logs, apps, bens, txns, parts, reports]) && getSupabaseSession()) {
+      await supabase.auth.getSession() // refresh the local session if needed
+      ;[accounts, logs, apps, bens, txns, parts, reports] = await fetchOnce()
+    }
     const errors = [accounts.error, logs.error, apps.error, bens.error, txns.error, parts.error, reports.error]
     if (errors.some(Boolean)) {
       console.warn(
@@ -315,12 +402,20 @@ export async function fetchAllCloud(): Promise<DataState | null> {
 /* Cloud write                                                         */
 /* ------------------------------------------------------------------ */
 
-/** Push the given (dirty) collections up to Supabase. Failures are logged, never thrown. */
+/**
+ * Push the given (dirty) collections up to Supabase. Failures are logged, never thrown.
+ * user_accounts is special: only profiles WITHOUT an auth_uid are pushed (their real
+ * credential lives in auth.users once linked, and only the owner/admin may update those
+ * rows under the new policies — so bulk self-service updates stop there).
+ */
 export async function pushCollections(keys: DataKey[], data: DataState): Promise<void> {
   if (!supabase) return
   const jobs: Array<PromiseLike<unknown>> = []
   if (keys.includes('accounts')) {
-    jobs.push(supabase.from('user_accounts').upsert(data.accounts.map(toDbAccount), { onConflict: 'id' }))
+    const pushable = data.accounts.filter((a) => !a.authUid)
+    if (pushable.length > 0) {
+      jobs.push(supabase.from('user_accounts').upsert(pushable.map(toDbAccount), { onConflict: 'id' }))
+    }
   }
   if (keys.includes('loginLogs')) {
     jobs.push(supabase.from('login_logs').upsert(data.loginLogs.map(toDbLoginLog), { onConflict: 'id' }))
@@ -359,3 +454,5 @@ export async function wipeAllCloud(): Promise<void> {
     if (r.status === 'rejected') console.warn('[apta] cloud wipe failed:', r.reason)
   }
 }
+
+export type { AuthError }

@@ -18,6 +18,7 @@ export function RegisterPage() {
   const [role, setRole] = useState<UserRole>('student')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [createdOther, setCreatedOther] = useState(false)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -33,6 +34,15 @@ export function RegisterPage() {
     setBusy(true)
     const res = await register(name, email, password, role)
     setBusy(false)
+    if (res.ok && res.signedIn === false) {
+      // An admin created a colleague — stay signed in as themselves.
+      setCreatedOther(true)
+      setName('')
+      setEmail('')
+      setPassword('')
+      setRole('student')
+      return
+    }
     if (res.ok) navigate('/applications')
     else setError(res.error ?? 'Registration failed.')
   }
@@ -79,6 +89,11 @@ export function RegisterPage() {
             </p>
           )}
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300">{error}</p>}
+          {createdOther && (
+            <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
+              Account created — they can sign in now / கணக்கு உருவாக்கப்பட்டது — அவர்களால் உள்நுழைய முடியும்.
+            </p>
+ )}
           <button className="btn-primary w-full" disabled={busy}>
             {busy ? 'Creating account…' : 'Create Account / கணக்கை உருவாக்கு'}
           </button>
