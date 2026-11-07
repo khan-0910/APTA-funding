@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import type { UserAccount, UserRole } from '@/types'
 import { useStore } from './store'
@@ -125,6 +125,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [userId, store.accounts])
 
   const activeOverride: UserRole | null = DEV_TOOLS ? devRoleOverride : null
+
+  // An admin disabled this account (the change arrives live): end the session now.
+  useEffect(() => {
+    if (user?.status === 'disabled') void signOutRef.current()
+  }, [user?.status])
   const effectiveRole: UserRole | null = user
     ? (activeOverride ?? user.role)
     : activeOverride
@@ -369,6 +374,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [store, logEvent, persistSession, upsertLocalAccount, user],
   )
 
+  const signOutRef = useRef<() => Promise<void>>(async () => {})
   const signOut = useCallback(async () => {
     if (user) {
       await logEvent('LOGOUT', user, user.email, 'info', user.role)
@@ -387,6 +393,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setDevRoleOverride(null)
     persistSession(null, null, null)
   }, [user, authUid, logEvent, persistSession, store])
+  signOutRef.current = signOut
 
   const resetPassword = useCallback(async (email: string, captchaToken?: string): Promise<AuthResult> => {
     if (!supabase) return { ok: false, error: 'Password reset requires the cloud database.' }

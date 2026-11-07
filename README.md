@@ -89,7 +89,12 @@ One-time migration runbook (Dashboard → SQL Editor + Authentication settings):
 6. SQL Editor → **part4-limits** (per-account caps on rows and uploads; closes helper functions to anonymous callers).
 7. SQL Editor → **part5-live** (`updated_at` on every table + Realtime publication: live updates and edit-conflict detection).
 8. SQL Editor → **part6-quality** (email-domain allowlist for sign-ups, one open application per student, range checks). To accept another email domain later: Table Editor → `allowed_email_domains` → Insert row (set `is_suffix` for whole families like `ac.in`).
-9. Push to `main`; GitHub Actions builds and deploys.
+9. SQL Editor → **part7-disabled** (disabled accounts lose API access immediately; the last active admin can't be removed).
+10. **First admin** (once): sign up on the live site, then in the SQL Editor
+    `update user_accounts set role = 'admin' where email = '<their email>';` and sign in again.
+    After that, admins manage everyone from **Users & access** (`/admin/users`): promote to staff/admin,
+    demote, disable or re-enable. Admins can't change their own access, and the last admin is protected.
+11. Push to `main`; Vercel builds and deploys.
 
 ### Email confirmation & SMTP
 

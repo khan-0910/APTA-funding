@@ -71,6 +71,7 @@ const router = createBrowserRouter([
       { path: 'progress-reports', element: <ProgressReportsPage /> },
       { path: 'staff/progress-reports', lazy: () => import('@/pages/StaffProgressReportsPage').then((m) => ({ Component: m.StaffProgressReportsPage })) },
       { path: 'staff/accounting', lazy: () => import('@/pages/AccountingPage').then((m) => ({ Component: m.AccountingPage })) },
+      { path: 'admin/users', lazy: () => import('@/pages/UsersPage').then((m) => ({ Component: m.UsersPage })) },
       { path: 'staff/partners', lazy: () => import('@/pages/PartnersPage').then((m) => ({ Component: m.PartnersPage })) },
       { path: '*', element: <NotFoundPage /> },
     ],

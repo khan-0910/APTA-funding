@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   ScrollText,
+  UserCog,
   Users,
   X,
 } from 'lucide-react'
@@ -27,6 +28,7 @@ const NAV: Array<{ to: string; en: string; ta: string; icon: typeof FileStack; r
   { to: '/staff/progress-reports', en: 'Report review', ta: 'அறிக்கை ஆய்வு', icon: ClipboardCheck, roles: ['staff', 'admin'] },
   { to: '/staff/accounting', en: 'Accounting', ta: 'கணக்கியல்', icon: BadgeIndianRupee, roles: ['staff', 'admin'] },
   { to: '/staff/partners', en: 'Partners', ta: 'கூட்டாளர்கள்', icon: Handshake, roles: ['staff', 'admin'] },
+  { to: '/admin/users', en: 'Users & access', ta: 'பயனர்கள்', icon: UserCog, roles: ['admin'] },
 ]
 
 export function Logo({ className = '' }: { className?: string }) {
