@@ -512,7 +512,9 @@ export async function pushRows(key: DataKey, rows: Array<{ id: string }>, known:
     const { data, error } = await supabase
       .from(table)
       .upsert(pushable.map(toDb), { onConflict: 'id' })
-      .select(VERSIONED.includes(key) ? 'id, updated_at' : 'id')
+      // '*' rather than 'id, updated_at': naming a column part5-live.sql hasn't added yet
+      // would make every save fail. Without the column, conflict checks are simply skipped.
+      .select('*')
     if (error) {
       console.warn(`[apta] cloud push to ${table} rejected:`, error.message)
       return result
