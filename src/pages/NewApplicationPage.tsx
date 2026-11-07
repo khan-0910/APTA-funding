@@ -9,6 +9,7 @@ import { formatAadhaar, formatIndianMobile, formatINR } from '@/lib/format'
 import { useStore } from '@/lib/store'
 import { useAuth } from '@/lib/auth'
 import { checkUpload, storeFile } from '@/lib/persistence'
+import { isValidAadhaar, isValidIndianMobile, isValidName, isValidPinCode } from '@/lib/validate'
 import type { Application, AttachedDocument } from '@/types'
 
 const uid = (p: string): string => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -81,16 +82,37 @@ export function NewApplicationPage() {
       setSubmissionError('Please sign in before submitting / சமர்ப்பிக்கும் முன் உள்நுழையவும்.')
       return
     }
-    if (!draft.basicInfo.fullName.trim()) {
-      setSubmissionError('Full name is required / முழுப் பெயர் தேவை.')
-      return
-    }
-    if (draft.basicInfo.mobile.replace(/\D/g, '').length !== 10) {
-      setSubmissionError('Enter a 10-digit mobile number / 10 இலக்க கைபேசி எண்ணை உள்ளிடவும்.')
-      return
-    }
-    if (!(Number(draft.purpose.amountRequired) > 0)) {
-      setSubmissionError('Enter the amount required / தேவையான தொகையை உள்ளிடவும்.')
+    // First problem wins; each message names the field so it's easy to find.
+    const b = draft.basicInfo
+    const age = Number(b.age)
+    const amount = Number(draft.purpose.amountRequired)
+    const problem = store.applications.some(
+      (a) => a.studentId === user.id && (a.status === 'submitted' || a.status === 'under_review'),
+    )
+      ? 'You already have an application under review. You can apply again once it is decided / உங்கள் விண்ணப்பம் ஏற்கனவே ஆய்வில் உள்ளது.'
+      : !isValidName(b.fullName)
+        ? 'Full name: letters only, at least 2 characters / முழுப் பெயர்: எழுத்துகள் மட்டும்.'
+        : !(age >= 10 && age <= 60)
+          ? 'Age: enter an age between 10 and 60 / வயது: 10 முதல் 60 வரை.'
+          : !b.gender
+            ? 'Gender: please select / பாலினம்: தேர்வு செய்யவும்.'
+            : !isValidIndianMobile(b.mobile)
+              ? 'Contact mobile: enter a 10-digit Indian mobile number starting with 6–9 / சரியான கைபேசி எண்.'
+              : b.aadhaar.trim() && !isValidAadhaar(b.aadhaar)
+                ? 'Aadhaar number: this is not a valid Aadhaar number — please check the digits / ஆதார் எண் சரியில்லை.'
+                : b.pinCode.trim() && !isValidPinCode(b.pinCode)
+                  ? 'PIN code: enter the 6-digit PIN / 6 இலக்க அஞ்சல் குறியீடு.'
+                  : draft.references.some((r) => r.mobile.trim() && !isValidIndianMobile(r.mobile))
+                    ? 'References: a reference mobile number is not valid / குறிப்பு கைபேசி எண் சரியில்லை.'
+                    : !draft.purpose.category
+                      ? 'Purpose of assistance: select a category / உதவி வகையைத் தேர்வு செய்யவும்.'
+                      : !(amount >= 1 && amount <= 1000000)
+                        ? 'Amount required: enter an amount between ₹1 and ₹10,00,000 / தேவையான தொகை.'
+                        : draft.purpose.statement.trim().length < 30
+                          ? 'Statement of need: please explain in at least 30 characters / தேவையை விளக்கவும்.'
+                          : ''
+    if (problem) {
+      setSubmissionError(problem)
       return
     }
     if (!draft.declaration.undertakingAgreed) {

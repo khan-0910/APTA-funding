@@ -5,6 +5,7 @@ import { HeartHandshake, ShieldAlert } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { Field } from '@/components/ui'
 import { CAPTCHA_ON, Captcha } from '@/components/Captcha'
+import { EMAIL_RULE_MESSAGE, isAllowedEmail, isStrongPassword, isValidName } from '@/lib/validate'
 import type { UserRole } from '@/types'
 
 export function RegisterPage() {
@@ -34,8 +35,19 @@ export function RegisterPage() {
       setError('Please accept the Privacy Policy and Terms / தனியுரிமைக் கொள்கையை ஏற்கவும்.')
       return
     }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters / கடவுச்சொல் குறைந்தது 8 எழுத்துகள்.')
+    if (!isValidName(name)) {
+      setError('Enter your full name using letters only / எழுத்துகளில் முழுப் பெயரை உள்ளிடவும்.')
+      return
+    }
+    if (!isStrongPassword(password)) {
+      setError('Password needs at least 8 characters, including a letter and a number / குறைந்தது 8 எழுத்துகள், ஒரு எழுத்தும் ஒரு எண்ணும் தேவை.')
+      return
+    }
+    setBusy(true)
+    const emailOk = await isAllowedEmail(email)
+    setBusy(false)
+    if (!emailOk) {
+      setError(EMAIL_RULE_MESSAGE)
       return
     }
     if ((role === 'admin' || role === 'staff') && !canManage) {
@@ -85,7 +97,7 @@ export function RegisterPage() {
           <Field label="Email" labelTa="மின்னஞ்சல்" required>
             <input className="input-base" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           </Field>
-          <Field label="Password" labelTa="கடவுச்சொல்" required hint="Minimum 8 characters">
+          <Field label="Password" labelTa="கடவுச்சொல்" required hint="At least 8 characters, with a letter and a number">
             <input className="input-base" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
           </Field>
           <Field label="I am registering as" labelTa="பதிவு செய்யும் வகை" required>

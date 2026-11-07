@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { T } from '@/lib/lang'
+import { isStrongPassword } from '@/lib/validate'
 import { KeyRound } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { Field } from '@/components/ui'
@@ -28,8 +29,8 @@ export function ResetPasswordPage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters / கடவுச்சொல் குறைந்தது 8 எழுத்துகள்.')
+    if (!isStrongPassword(password)) {
+      setError('Password needs at least 8 characters, including a letter and a number / குறைந்தது 8 எழுத்துகள், ஒரு எழுத்தும் ஒரு எண்ணும் தேவை.')
       return
     }
     if (password !== confirm) {
@@ -54,7 +55,7 @@ export function ResetPasswordPage() {
             <h1 className="text-xl font-bold text-surface-900">
               Set a new password <span className="ta text-amber-600">/ புதிய கடவுச்சொல்</span>
             </h1>
-            <p className="text-xs text-surface-500">Choose a password of at least 8 characters</p>
+            <p className="text-xs text-surface-500">At least 8 characters, with a letter and a number</p>
           </div>
         </div>
 
