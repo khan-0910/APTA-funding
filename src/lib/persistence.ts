@@ -245,6 +245,7 @@ function fromDbApplication(r: any): Application {
 function toDbBeneficiary(b: Beneficiary) {
   return {
     id: b.id,
+    student_id: b.studentId ?? null,
     name: b.name,
     category: b.category,
     education_level: b.educationLevel ?? null,
@@ -261,6 +262,7 @@ function toDbBeneficiary(b: Beneficiary) {
 function fromDbBeneficiary(r: any): Beneficiary {
   return {
     id: r.id,
+    studentId: r.student_id ?? undefined,
     name: r.name ?? 'Unknown',
     category: r.category ?? 'education',
     educationLevel: r.education_level ?? undefined,
@@ -437,47 +439,85 @@ export async function fetchAllCloud(): Promise<DataState | null> {
 /* Cloud write                                                         */
 /* ------------------------------------------------------------------ */
 
+const TABLES: Record<DataKey, { table: string; toDb: (row: any) => unknown }> = {
+  accounts: { table: 'user_accounts', toDb: toDbAccount },
+  loginLogs: { table: 'login_logs', toDb: toDbLoginLog },
+  applications: { table: 'applications', toDb: toDbApplication },
+  beneficiaries: { table: 'beneficiaries', toDb: toDbBeneficiary },
+  transactions: { table: 'transactions', toDb: toDbTransaction },
+  partners: { table: 'partners', toDb: toDbPartner },
+  progressReports: { table: 'progress_reports', toDb: toDbProgressReport },
+}
+
 /**
- * Push the given (dirty) collections up to Supabase. Failures are logged, never thrown.
- * user_accounts is special: only profiles WITHOUT an auth_uid are pushed (their real
- * credential lives in auth.users once linked, and only the owner/admin may update those
- * rows under the new policies — so bulk self-service updates stop there).
+ * Upsert only the given (changed) rows of one collection. Returns true when the cloud
+ * accepted them, so the caller can mark them synced; failures are logged and retried
+ * on the next change. Profiles linked to Supabase Auth are never bulk-pushed: their
+ * bookkeeping is written under the owner's session (see auth.tsx).
  */
-export async function pushCollections(keys: DataKey[], data: DataState): Promise<void> {
-  if (!supabase) return
-  const jobs: Array<PromiseLike<unknown>> = []
-  if (keys.includes('accounts')) {
-    const pushable = data.accounts.filter((a) => !a.authUid)
-    if (pushable.length > 0) {
-      jobs.push(supabase.from('user_accounts').upsert(pushable.map(toDbAccount), { onConflict: 'id' }))
-    }
+export async function pushRows(key: DataKey, rows: Array<{ id: string }>): Promise<boolean> {
+  if (!supabase) return true
+  const pushable = key === 'accounts' ? (rows as UserAccount[]).filter((a) => !a.authUid) : rows
+  if (pushable.length === 0) return true
+  const { table, toDb } = TABLES[key]
+  try {
+    const { error } = await supabase.from(table).upsert(pushable.map(toDb), { onConflict: 'id' })
+    if (error) console.warn(`[apta] cloud push to ${table} rejected:`, error.message)
+    return !error
+  } catch (err) {
+    console.warn(`[apta] cloud push to ${table} failed:`, err)
+    return false
   }
-  if (keys.includes('loginLogs')) {
-    jobs.push(supabase.from('login_logs').upsert(data.loginLogs.map(toDbLoginLog), { onConflict: 'id' }))
-  }
-  if (keys.includes('applications')) {
-    jobs.push(supabase.from('applications').upsert(data.applications.map(toDbApplication), { onConflict: 'id' }))
-  }
-  if (keys.includes('beneficiaries')) {
-    jobs.push(supabase.from('beneficiaries').upsert(data.beneficiaries.map(toDbBeneficiary), { onConflict: 'id' }))
-  }
-  if (keys.includes('transactions')) {
-    jobs.push(supabase.from('transactions').upsert(data.transactions.map(toDbTransaction), { onConflict: 'id' }))
-  }
-  if (keys.includes('partners')) {
-    jobs.push(supabase.from('partners').upsert(data.partners.map(toDbPartner), { onConflict: 'id' }))
-  }
-  if (keys.includes('progressReports')) {
-    jobs.push(supabase.from('progress_reports').upsert(data.progressReports.map(toDbProgressReport), { onConflict: 'id' }))
-  }
-  const results = await Promise.allSettled(jobs)
-  for (const r of results) {
-    if (r.status === 'rejected') console.warn('[apta] cloud push failed:', r.reason)
-    else {
-      const res = r.value as { error?: { message: string } | null }
-      if (res?.error) console.warn('[apta] cloud push rejected:', res.error.message)
-    }
-  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Document storage (Supabase Storage bucket "documents")              */
+/* ------------------------------------------------------------------ */
+
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+export const ALLOWED_UPLOAD_TYPES = ['application/pdf', 'image/png', 'image/jpeg']
+
+/**
+ * Upload a file to the private "documents" bucket under the signed-in user's folder
+ * (the storage policy only allows writes to `<auth uid>/...`). Returns the object path.
+ */
+export async function uploadDocument(file: File, folder: string): Promise<string> {
+  if (!supabase) throw new Error('Uploads need the cloud database.')
+  const uid = decodeJwtSub(getSupabaseSession()?.access_token ?? '')
+  if (!uid) throw new Error('Sign in again to upload documents.')
+  const safeName = file.name.replace(/[^\w.-]+/g, '_').slice(-80)
+  const path = `${uid}/${folder}/${Date.now().toString(36)}-${safeName}`
+  const { error } = await supabase.storage.from('documents').upload(path, file, { contentType: file.type, upsert: false })
+  if (error) throw new Error(`Upload failed: ${error.message}`)
+  return path
+}
+
+/** Returns an error message when a file can't be accepted, otherwise null. */
+export function checkUpload(file: File): string | null {
+  if (!ALLOWED_UPLOAD_TYPES.includes(file.type)) return `${file.name}: only PDF, PNG or JPG files are accepted.`
+  // localStorage holds ~5 MB in total, so local-only mode takes much smaller files.
+  const limit = supabase ? MAX_UPLOAD_BYTES : 1024 * 1024
+  if (file.size > limit) return `${file.name}: files must be under ${limit / 1024 / 1024} MB.`
+  return null
+}
+
+/** Cloud: upload to Storage. Local-only mode: inline the file as a data: URL. */
+export async function storeFile(file: File, folder: string): Promise<{ storagePath?: string; dataUrl?: string }> {
+  if (supabase) return { storagePath: await uploadDocument(file, folder) }
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}`))
+    reader.readAsDataURL(file)
+  })
+  return { dataUrl }
+}
+
+/** Short-lived download link for a stored document (RLS decides who may read it). */
+export async function documentUrl(path: string): Promise<string | null> {
+  if (!supabase) return null
+  const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60)
+  return error ? null : data.signedUrl
 }
 
 /** Delete every row in every cloud table (login logs first due to the FK). */

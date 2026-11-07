@@ -19,6 +19,8 @@ export interface AuthResult {
   error?: string
   /** false when the operation succeeded but did not start a session (e.g. admin created a colleague). */
   signedIn?: boolean
+  /** Account created but the email address must be confirmed before signing in. */
+  needsConfirmation?: boolean
 }
 
 interface AuthShape {
@@ -201,11 +203,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await logEvent('LOGIN_FAILED', account ?? null, normalized, 'failure', account?.role ?? 'unknown')
         return {
           ok: false,
-          error: !account
-            ? 'No account found for this email.'
-            : account.status !== 'active'
+          // Same message for unknown email and wrong password: no account enumeration.
+          error:
+            account && account.status !== 'active' && verifyPassword(password, account.passwordHash)
               ? 'This account is disabled.'
-              : 'Incorrect password or disabled account.',
+              : 'Incorrect email or password.',
         }
       }
       const updated = store.accounts.map((a) =>
@@ -276,7 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.auth.signUp({
         email: normalized,
         password,
-        options: { data: { full_name: name.trim() } },
+        options: { data: { full_name: name.trim() }, emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login` },
       })
       if (error) {
         const msg = error.message.toLowerCase()
@@ -289,8 +291,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       if (!data.session) {
-        // Email confirmation is enabled server-side — no instant session.
-        return { ok: false, error: 'Account created. Check your email to confirm, then sign in / கணக்கு உருவாக்கப்பட்டது — மின்னஞ்சலை சரிபார்த்து உள்நுழையுங்கள்.' }
+        // "Confirm email" is on: no session until the link is clicked. The admin's own
+        // session is untouched, so a staff/admin role can still be set right away.
+        if (role !== 'student' && data.user?.id) {
+          const { error: promoteError } = await supabase.from('user_accounts').update({ role }).eq('auth_uid', data.user.id)
+          if (promoteError) return { ok: false, error: `Created the login but could not set the role (${promoteError.message}).` }
+          await logEvent('ACCOUNT_CREATED', null, normalized, 'info', role)
+          return { ok: true, signedIn: false, needsConfirmation: true }
+        }
+        await logEvent('ACCOUNT_CREATED', null, normalized, 'info', role)
+        return { ok: true, signedIn: false, needsConfirmation: true }
       }
 
       const uid = data.user?.id ?? null
@@ -355,6 +365,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     if (user) {
       await logEvent('LOGOUT', user, user.email, 'info', user.role)
+      // Push now: once the session is gone, RLS rejects this user's pending writes.
+      await store.flushPending()
     }
     if (authUid && supabase) {
       try {
@@ -367,11 +379,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthUid(null)
     setDevRoleOverride(null)
     persistSession(null, null, null)
-  }, [user, authUid, logEvent, persistSession])
+  }, [user, authUid, logEvent, persistSession, store])
 
   const resetPassword = useCallback(async (email: string): Promise<AuthResult> => {
     if (!supabase) return { ok: false, error: 'Password reset requires the cloud database.' }
-    const redirectTo = `${window.location.origin}/APTA-funding/reset`
+    const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}reset`
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo })
     // Supabase returns success even for unknown emails (no account enumeration).
     if (error) return { ok: false, error: `Could not send reset email: ${error.message}` }

@@ -4,22 +4,15 @@
     <meta charset="utf-8" />
     <title>APTA Empowers</title>
     <script>
-      // GitHub Pages serves a real 404 for unknown paths (no server rewrite for
-      // SPAs), so this fallback stages the requested route by redirecting to the
-      // app root with the original path/query/hash packed into a single ?r=
-      // parameter. Query params survive the extra document load that GitHub
-      // Pages sometimes performs after the fallback redirect (sessionStorage did
-      // not), and main.tsx consumes ?r= on boot, restores the route, and
-      // rewrites the URL clean.
+      // GitHub Pages has no SPA rewrites: a deep link like /applications/123 lands here.
+      // Send it to the app root with the path packed into ?r= (query params survive the
+      // extra load Pages sometimes does); main.tsx restores the route and cleans the URL.
       ;(function () {
         var loc = window.location
-        if (loc.pathname.indexOf('/APTA-funding') !== 0) return
-        var dest =
-          '/APTA-funding/?r=' +
-          encodeURIComponent(
-            loc.pathname.replace(/\/+$/, '') + loc.search + loc.hash
-          )
-        window.location.replace(dest)
+        // Project site → /APTA-funding/, custom domain → /
+        var base = loc.pathname.indexOf('/APTA-funding') === 0 ? '/APTA-funding/' : '/'
+        var path = loc.pathname.replace(/\/+$/, '') || '/'
+        window.location.replace(base + '?r=' + encodeURIComponent(path + loc.search + loc.hash))
       })()
     </script>
   </head>

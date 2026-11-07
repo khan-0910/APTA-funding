@@ -1,50 +1,47 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
-
 @theme {
-  /* Navy — the institution colour */
-  --color-primary-50: #eef3fb;
-  --color-primary-100: #d9e4f5;
-  --color-primary-200: #b6cbeb;
-  --color-primary-300: #87a8dc;
-  --color-primary-400: #6690d8;
-  --color-primary-500: #3b6fd1;
-  --color-primary-600: #234a94;
-  --color-primary-700: #1c3b78;
-  --color-primary-800: #172f5f;
-  --color-primary-900: #12244a;
-  --color-primary-950: #0a1630;
+  /* Blue — lighter, friendlier than navy; 600 is the action colour (4.9:1 on white). */
+  --color-primary-50: #f1f6fe;
+  --color-primary-100: #e1ecfc;
+  --color-primary-200: #c4d9f8;
+  --color-primary-300: #98bcf2;
+  --color-primary-400: #6a9be9;
+  --color-primary-500: #4a82e0;
+  --color-primary-600: #2f68cc;
+  --color-primary-700: #2554a8;
+  --color-primary-800: #214785;
+  --color-primary-900: #1f3d6c;
+  --color-primary-950: #142645;
 
-  /* Academic gold — overrides Tailwind's amber so every existing accent follows */
-  --color-amber-50: #fdf9ec;
-  --color-amber-100: #f9efcc;
-  --color-amber-200: #f2dd96;
-  --color-amber-300: #eac65c;
-  --color-amber-400: #e2b13a;
-  --color-amber-500: #c9971f;
-  --color-amber-600: #a97a16;
-  --color-amber-700: #875e15;
-  --color-amber-800: #6f4c18;
-  --color-amber-900: #5e4019;
+  /* Gold — used sparingly for the primary call to action and a few highlights. */
+  --color-amber-50: #fdf8ec;
+  --color-amber-100: #faefcf;
+  --color-amber-200: #f4dd9b;
+  --color-amber-300: #edc865;
+  --color-amber-400: #e6b443;
+  --color-amber-500: #d29b25;
+  --color-amber-600: #b07c17;
+  --color-amber-700: #8c5f16;
+  --color-amber-800: #714c18;
+  --color-amber-900: #5f4019;
   --color-amber-950: #36220a;
-  --color-amber-accent: #c9971f;
 
-  /* Cool slate neutrals with a faint navy tint */
-  --color-surface-50: #f7f8fb;
-  --color-surface-100: #eef1f6;
-  --color-surface-200: #dfe4ed;
-  --color-surface-300: #c5cdda;
-  --color-surface-400: #94a0b5;
-  --color-surface-500: #67738a;
-  --color-surface-600: #4c5770;
-  --color-surface-700: #3a445b;
-  --color-surface-800: #252e42;
-  --color-surface-900: #161e31;
-  --color-surface-950: #0b1222;
+  /* Neutrals with a faint blue cast */
+  --color-surface-50: #f7f9fc;
+  --color-surface-100: #eff3f8;
+  --color-surface-200: #e2e8f0;
+  --color-surface-300: #cbd4e1;
+  --color-surface-400: #94a2b8;
+  --color-surface-500: #66748b;
+  --color-surface-600: #4b586e;
+  --color-surface-700: #374357;
+  --color-surface-800: #232d3f;
+  --color-surface-900: #151d2c;
+  --color-surface-950: #0b111c;
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Tamil", sans-serif;
-  --font-display: "Source Serif 4", "Georgia", "Times New Roman", serif;
+  --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
   --font-tamil: "Noto Sans Tamil", "Latha", "InaiMathi", system-ui, sans-serif;
 
   --ease-out-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -52,79 +49,54 @@
 
 html {
   font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  color-scheme: light;
 }
 
 body {
-  @apply text-surface-900 antialiased dark:text-surface-100;
-  background-color: var(--color-surface-50);
-  background-image:
-    radial-gradient(60rem 40rem at 10% -10%, rgba(35, 74, 148, 0.09), transparent 60%),
-    radial-gradient(48rem 34rem at 95% -5%, rgba(201, 151, 31, 0.08), transparent 58%),
-    radial-gradient(70rem 46rem at 50% 120%, rgba(35, 74, 148, 0.06), transparent 62%);
-  background-attachment: fixed;
+  @apply bg-surface-50 text-surface-800 antialiased;
 }
 
-.dark body {
-  background-color: var(--color-primary-950);
-  background-image:
-    radial-gradient(60rem 40rem at 10% -10%, rgba(59, 111, 209, 0.16), transparent 60%),
-    radial-gradient(48rem 34rem at 92% -6%, rgba(201, 151, 31, 0.08), transparent 58%);
-}
-
-h1,
-h2,
-h3,
-.font-display,
-.section-title {
-  font-family: var(--font-display);
-  letter-spacing: -0.01em;
-}
-
-/* Tamil text inside headings should stay in the Tamil face */
-h1 .ta,
-h2 .ta,
-h3 .ta {
-  font-family: var(--font-tamil);
-  letter-spacing: 0;
-}
-
-::selection {
-  background-color: #e2b13a;
-  color: #0a1630;
+/* English-only mode: every Tamil string lives in a .ta element. */
+html[data-lang="en"] .ta {
+  display: none;
 }
 
 .ta {
   font-family: var(--font-tamil);
 }
 
+.font-display {
+  font-family: var(--font-display);
+}
+
+::selection {
+  background-color: var(--color-primary-200);
+  color: var(--color-primary-950);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
 /* ------------------------------------------------------------------ */
 /* Surfaces                                                            */
 /* ------------------------------------------------------------------ */
 
-.glass-card {
-  @apply rounded-2xl border border-surface-200/90 bg-white/90 shadow-[0_1px_2px_rgba(18,36,74,0.05),0_8px_24px_-12px_rgba(18,36,74,0.18)] backdrop-blur-xl dark:border-white/[0.07] dark:bg-surface-900/80 dark:shadow-[0_1px_2px_rgba(0,0,0,0.3),0_12px_32px_-16px_rgba(0,0,0,0.6)];
+.card {
+  @apply rounded-xl border border-surface-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)];
 }
 
-.glass-sidebar {
-  @apply border-r border-white/10 bg-primary-900 text-white dark:bg-surface-950;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 40%),
-    radial-gradient(30rem 20rem at 0% 100%, rgba(201, 151, 31, 0.1), transparent 70%);
-}
-
-/* Interactive card lift — opt in with .card-hover */
 .card-hover {
   transition:
-    transform 180ms var(--ease-out-soft),
-    box-shadow 180ms var(--ease-out-soft),
-    border-color 180ms var(--ease-out-soft);
+    border-color 150ms ease,
+    box-shadow 150ms ease;
 }
 @media (hover: hover) {
   .card-hover:hover {
-    transform: translateY(-2px);
-    border-color: rgba(201, 151, 31, 0.45);
-    box-shadow:
-      0 1px 2px rgba(18, 36, 74, 0.06),
-      0 16px 32px -14px rgba(18, 36, 74, 0.28);
+    border-color: var(--color-primary-200);
+    box-shadow: 0 4px 16px -8px rgba(31, 61, 108, 0.18);
   }
 }
 
@@ -133,235 +105,97 @@ h3 .ta {
 /* ------------------------------------------------------------------ */
 
 .input-base {
-  @apply w-full rounded-lg border border-surface-300 bg-white px-3 py-2 text-sm text-surface-900 shadow-sm outline-none transition placeholder:text-surface-400 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/20 dark:border-surface-700 dark:bg-surface-900/70 dark:text-surface-100 dark:placeholder:text-surface-500 dark:focus:border-primary-400 dark:focus:ring-primary-400/25;
+  @apply w-full rounded-lg border border-surface-300 bg-white px-3 py-2 text-sm text-surface-900 outline-none transition-[border-color,box-shadow] placeholder:text-surface-400 focus:border-primary-500 focus:ring-3 focus:ring-primary-500/15;
 }
 
 .label-bilingual {
-  @apply block text-xs font-semibold tracking-wide text-surface-700 dark:text-surface-300;
+  @apply block text-[13px] font-medium text-surface-700;
 }
 
 .label-ta {
-  @apply mt-0.5 block font-normal text-surface-500 dark:text-surface-400;
+  @apply mt-0.5 block text-xs font-normal text-surface-500;
 }
 
 .btn-primary,
 .btn-accent,
 .btn-ghost,
 .btn-danger {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease,
-    box-shadow 160ms ease,
-    transform 120ms ease;
-}
-.btn-primary:active:not(:disabled),
-.btn-accent:active:not(:disabled),
-.btn-ghost:active:not(:disabled),
-.btn-danger:active:not(:disabled) {
-  transform: translateY(1px);
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-55;
 }
 
 .btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-primary-900/20 hover:bg-primary-800 hover:shadow-md hover:shadow-primary-900/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-primary-600 dark:hover:bg-primary-500 dark:focus-visible:ring-offset-surface-950;
+  @apply bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800;
 }
 
 .btn-accent {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-primary-950 shadow-sm shadow-amber-700/20 hover:bg-amber-300 hover:shadow-md hover:shadow-amber-700/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:focus-visible:ring-amber-200 dark:focus-visible:ring-offset-surface-950;
-}
-
-/* One-pass sheen across filled buttons on hover */
-.btn-primary::after,
-.btn-accent::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
-  transform: translateX(-120%);
-  pointer-events: none;
-}
-@media (hover: hover) {
-  .btn-primary:hover:not(:disabled)::after,
-  .btn-accent:hover:not(:disabled)::after {
-    transform: translateX(120%);
-    transition: transform 700ms var(--ease-out-soft);
-  }
+  @apply bg-amber-400 text-primary-950 hover:bg-amber-300 active:bg-amber-500;
 }
 
 .btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-surface-300 bg-white/60 px-4 py-2 text-sm font-semibold text-primary-800 hover:border-primary-300 hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600/40 dark:border-surface-700 dark:bg-transparent dark:text-surface-100 dark:hover:border-surface-600 dark:hover:bg-surface-800;
+  @apply border border-surface-300 bg-white text-surface-700 hover:border-surface-400 hover:bg-surface-50;
 }
 
 .btn-danger {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60;
+  @apply bg-red-600 text-white hover:bg-red-700;
 }
 
 .badge {
-  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium;
 }
 
 .section-title {
-  @apply text-lg font-bold text-primary-900 dark:text-surface-50;
+  @apply text-base font-semibold text-surface-900;
 }
 
-/* Small-caps label above headings */
-.eyebrow {
-  @apply inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-600 dark:text-amber-300;
-}
-
-/* Decorative gold rule under headings */
-.gold-rule {
-  display: block;
-  height: 3px;
-  width: 3.5rem;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #c9971f, #e2b13a 60%, rgba(226, 177, 58, 0));
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ------------------------------------------------------------------ */
-/* Motion                                                              */
+/* Motion — app screens stay quiet; the homepage has its own GSAP work */
 /* ------------------------------------------------------------------ */
 
-@keyframes apta-rise {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
 @keyframes apta-fade {
   from {
     opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
 @keyframes apta-pop {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: none;
+    transform: translateY(4px) scale(0.985);
   }
 }
 @keyframes apta-sheet {
   from {
-    transform: translateY(24px);
     opacity: 0;
-  }
-  to {
-    transform: none;
-    opacity: 1;
+    transform: translateY(16px);
   }
 }
 @keyframes apta-drawer {
   from {
     transform: translateX(-100%);
   }
-  to {
-    transform: none;
-  }
-}
-@keyframes apta-draw {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-@keyframes apta-drift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-  50% {
-    transform: translate3d(2.5rem, 1.5rem, 0);
-  }
 }
 
+/* "backwards" fill on purpose: a lingering transform would make <main> the containing
+   block for position:fixed modals rendered inside it. */
 .page-enter {
-  animation: apta-rise 320ms var(--ease-out-soft) backwards;
+  animation: apta-fade 180ms ease-out backwards;
 }
-
 .anim-fade {
-  animation: apta-fade 200ms ease-out both;
+  animation: apta-fade 160ms ease-out backwards;
 }
-
 .anim-pop {
-  animation: apta-pop 220ms var(--ease-out-soft) both;
+  animation: apta-pop 180ms var(--ease-out-soft) backwards;
 }
-
 @media (max-width: 639px) {
   .anim-pop {
     animation-name: apta-sheet;
   }
 }
-
 .anim-drawer {
-  animation: apta-drawer 260ms var(--ease-out-soft) backwards;
-}
-
-.anim-draw {
-  transform-origin: left center;
-  animation: apta-draw 700ms 200ms var(--ease-out-soft) both;
-}
-
-.anim-drift {
-  animation: apta-drift 22s ease-in-out infinite;
-}
-.anim-drift-slow {
-  animation: apta-drift 30s ease-in-out infinite reverse;
-}
-
-/* Scroll reveal: elements start hidden only when JS has marked the page ready */
-.reveal-ready .reveal {
-  opacity: 0;
-  transform: translateY(14px);
-  transition:
-    opacity 560ms var(--ease-out-soft),
-    transform 560ms var(--ease-out-soft);
-  transition-delay: calc(min(var(--i, 0), 6) * 70ms);
-}
-.reveal-ready .reveal.is-visible {
-  opacity: 1;
-  transform: none;
-}
-
-/* Staggered entrance for direct children (lists, grids).
-   Fill mode is "backwards" on purpose: a lingering transform (even identity) would
-   turn the element into the containing block for position:fixed modals inside it. */
-.stagger > * {
-  animation: apta-rise 420ms var(--ease-out-soft) backwards;
-}
-.stagger > *:nth-child(2) {
-  animation-delay: 50ms;
-}
-.stagger > *:nth-child(3) {
-  animation-delay: 100ms;
-}
-.stagger > *:nth-child(4) {
-  animation-delay: 150ms;
-}
-.stagger > *:nth-child(5) {
-  animation-delay: 200ms;
-}
-.stagger > *:nth-child(n + 6) {
-  animation-delay: 250ms;
-}
-.stagger > .anim-draw {
-  transform-origin: left center;
-  animation: apta-draw 700ms 260ms var(--ease-out-soft) both;
+  animation: apta-drawer 220ms var(--ease-out-soft) backwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -370,16 +204,7 @@ h3 .ta {
   *::after {
     animation-duration: 1ms !important;
     animation-delay: 0ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
-    transition-delay: 0ms !important;
-  }
-  .reveal-ready .reveal {
-    opacity: 1;
-    transform: none;
-  }
-  .card-hover:hover {
-    transform: none;
   }
 }
 
@@ -402,33 +227,12 @@ h3 .ta {
     overflow: visible !important;
     animation: none !important;
   }
-  .glass-card {
+  .card {
     border: 1px solid #cbd5e1 !important;
-    background: white !important;
     box-shadow: none !important;
-    backdrop-filter: none !important;
-  }
-  .reveal {
-    opacity: 1 !important;
-    transform: none !important;
   }
 }
 
 .print-only {
   display: none;
-}
-
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background-color: var(--color-surface-300);
-}
-.dark ::-webkit-scrollbar-thumb {
-  background-color: var(--color-surface-700);
-}
-::-webkit-scrollbar-track {
-  background: transparent;
 }

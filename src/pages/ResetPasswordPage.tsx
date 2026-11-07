@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { T } from '@/lib/lang'
 import { KeyRound } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { Field } from '@/components/ui'
@@ -44,23 +45,23 @@ export function ResetPasswordPage() {
 
   return (
     <div className="mx-auto max-w-md py-6">
-      <div className="glass-card relative overflow-hidden p-7 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-gradient-to-r before:from-primary-800 before:via-amber-400 before:to-primary-800">
+      <div className="card p-7">
         <div className="mb-5 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-700 to-primary-950 text-amber-300 ring-1 ring-amber-400/50">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
             <KeyRound className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-primary-900 dark:text-surface-50">
-              Set a new password <span className="ta text-amber-600 dark:text-amber-300">/ புதிய கடவுச்சொல்</span>
+            <h1 className="text-xl font-bold text-surface-900">
+              Set a new password <span className="ta text-amber-600">/ புதிய கடவுச்சொல்</span>
             </h1>
-            <p className="text-xs text-surface-500 dark:text-surface-400">Choose a password of at least 6 characters</p>
+            <p className="text-xs text-surface-500">Choose a password of at least 6 characters</p>
           </div>
         </div>
 
         {done ? (
           <div className="space-y-4">
-            <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
-              Password updated / கடவுச்சொல் புதுப்பிக்கப்பட்டது.
+            <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700">
+              Password updated<span className="ta">/ கடவுச்சொல் புதுப்பிக்கப்பட்டது.</span>
             </p>
             <button className="btn-primary w-full" onClick={() => navigate('/login')}>
               Continue to Sign In / உள்நுழைவுக்கு
@@ -74,13 +75,13 @@ export function ResetPasswordPage() {
             <Field label="Confirm password" labelTa="கடவுச்சொல்லை உறுதிசெய்" required>
               <input className="input-base" type="password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="••••••••" />
             </Field>
-            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300">{error}</p>}
+            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600"><T>{error}</T></p>}
             <button className="btn-primary w-full" disabled={busy}>
-              {busy ? 'Updating…' : 'Update Password / புதுப்பிக்க'}
+              {busy ? 'Updating…' : <T>{'Update Password / புதுப்பிக்க'}</T>}
             </button>
-            <p className="text-center text-sm text-surface-500 dark:text-surface-400">
-              <Link to="/login" className="font-semibold text-primary-600 hover:underline dark:text-primary-400">
-                Back to Sign In / <span className="ta">உள்நுழைவு</span>
+            <p className="text-center text-sm text-surface-500">
+              <Link to="/login" className="font-semibold text-primary-600 hover:underline">
+                Back to Sign In <span className="ta">/ உள்நுழைவு</span>
               </Link>
             </p>
           </form>

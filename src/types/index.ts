@@ -16,10 +16,13 @@ export interface CareerTransitionSurvey {
   workLocation?: string
   monthlySalary?: number
   offerLetterFileName?: string
+  /** Supabase Storage path of the uploaded offer letter. */
+  offerLetterPath?: string
   preferredRoles?: string
   preferredLocations?: string
   expectedSalary?: number
   resumeFileName?: string
+  resumePath?: string
   connectWithMentors?: boolean
   higherStudiesProgram?: string
   notes?: string
@@ -32,7 +35,10 @@ export interface AttachedDocument {
   type: string
   size: number
   category: string
+  /** Local-only mode: the file inlined as a data: URL. */
   dataUrl?: string
+  /** Cloud mode: object path in the private "documents" Storage bucket. */
+  storagePath?: string
   uploadedAt: string
 }
 
@@ -96,6 +102,8 @@ export interface Application {
 
 export interface Beneficiary {
   id: string
+  /** Account id of the student this record belongs to (set when created from an application). */
+  studentId?: string
   name: string
   category: 'education' | 'health_social' | 'business'
   educationLevel?: 'schooling' | 'undergraduate' | 'postgraduate'

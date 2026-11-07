@@ -1,17 +1,24 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { BookOpen, Plus } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { T } from '@/lib/lang'
 import { useAuth } from '@/lib/auth'
 import { formatDate } from '@/lib/format'
 import { EmptyState, Field, PageHeader } from '@/components/ui'
 import type { ProgressReport } from '@/types'
 
-const CURRENT_SEMESTER = 'Fall 2026'
+// Indian academic year runs June–May: odd semester Jun–Nov, even semester Dec–May.
+const CURRENT_SEMESTER = (() => {
+  const d = new Date()
+  const start = d.getMonth() >= 5 ? d.getFullYear() : d.getFullYear() - 1
+  const odd = d.getMonth() >= 5 && d.getMonth() <= 10
+  return `${odd ? 'Odd' : 'Even'} semester ${start}–${String(start + 1).slice(2)}`
+})()
 
 const STATUS_STYLE: Record<string, string> = {
-  reviewed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-  pending: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
-  action_required: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
+  reviewed: 'bg-emerald-100 text-emerald-700',
+  pending: 'bg-amber-100 text-amber-700',
+  action_required: 'bg-red-100 text-red-700',
 }
 
 export function ProgressReportsPage() {
@@ -23,7 +30,7 @@ export function ProgressReportsPage() {
   const [narrative, setNarrative] = useState('')
 
   const mine = useMemo(
-    () => progressReports.filter((r) => (user ? r.studentId === user.id || r.studentName === user.name : true)),
+    () => (user ? progressReports.filter((r) => r.studentId === user.id) : []),
     [progressReports, user],
   )
 
@@ -37,13 +44,13 @@ export function ProgressReportsPage() {
       />
       <div className="mb-4 flex justify-end">
         <button className="btn-accent" onClick={() => setShowForm((v) => !v)}>
-          <Plus className="h-4.5 w-4.5" /> {showForm ? 'Close / மூடு' : 'New Report / புதிய அறிக்கை'}
+          <Plus className="h-4.5 w-4.5" /> {showForm ? <T>{'Close / மூடு'}</T> : <T>{'New Report / புதிய அறிக்கை'}</T>}
         </button>
       </div>
 
       {showForm && (
         <form
-          className="glass-card mb-6 space-y-4 p-5"
+          className="card mb-6 space-y-4 p-5"
           onSubmit={(e: FormEvent) => {
             e.preventDefault()
             if (!user || !gpa || !narrative.trim()) return
@@ -81,7 +88,7 @@ export function ProgressReportsPage() {
           </Field>
           <div className="flex justify-end">
             <button className="btn-primary" type="submit" disabled={!gpa || !narrative.trim()}>
-              Submit Report / <span className="ta">சமர்ப்பி</span>
+              Submit Report <span className="ta">/ சமர்ப்பி</span>
             </button>
           </div>
         </form>
@@ -90,22 +97,22 @@ export function ProgressReportsPage() {
       {mine.length === 0 ? (
         <EmptyState icon={<BookOpen className="h-8 w-8 text-surface-300" />} title="No reports yet" titleTa="அறிக்கைகள் இல்லை" />
       ) : (
-        <div className="stagger grid gap-4">
+        <div className="grid gap-4">
           {mine.map((r) => (
-            <div key={r.id} className="glass-card card-hover p-5">
+            <div key={r.id} className="card card-hover p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-base font-bold text-surface-900 dark:text-surface-50">{r.semester}</p>
+                  <p className="text-base font-bold text-surface-900">{r.semester}</p>
                   <p className="text-xs text-surface-400">Submitted {formatDate(r.submittedAt)}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="badge bg-primary-600/10 font-bold text-primary-700 dark:text-primary-300">GPA {r.gpa.toFixed(1)}</span>
+                  <span className="badge bg-primary-600/10 font-bold text-primary-700">GPA {r.gpa.toFixed(1)}</span>
                   <span className={`badge ${STATUS_STYLE[r.status]}`}>{r.status.replace('_', ' ')}</span>
                 </div>
               </div>
-              <p className="mt-3 text-sm leading-relaxed text-surface-600 dark:text-surface-300">{r.narrative}</p>
+              <p className="mt-3 text-sm leading-relaxed text-surface-600">{r.narrative}</p>
               {r.reviewNotes && (
-                <p className="mt-3 rounded-lg bg-surface-50 px-3 py-2 text-xs text-surface-500 dark:bg-surface-800/60 dark:text-surface-400">
+                <p className="mt-3 rounded-lg bg-surface-50 px-3 py-2 text-xs text-surface-500">
                   Staff review: {r.reviewNotes}
                 </p>
               )}

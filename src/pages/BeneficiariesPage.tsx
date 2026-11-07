@@ -21,6 +21,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { useBi } from '@/lib/lang'
 import { useAuth } from '@/lib/auth'
 import { formatDate, formatINR, monthLabel } from '@/lib/format'
 import { CareerBadge, EmptyState, Field, KpiCard, Modal, PageHeader } from '@/components/ui'
@@ -91,6 +92,17 @@ export function BeneficiariesPage() {
     return { byCategory, byLevel }
   }, [store.beneficiaries])
 
+  // Funding and placement data about other students is staff-only.
+  if (!can('view_beneficiaries')) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <p className="card p-8 text-center text-sm text-surface-500">
+          Staff access only <span className="ta">/ ஊழியர் அணுகல் மட்டும்</span>
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader
@@ -101,14 +113,14 @@ export function BeneficiariesPage() {
         actions={
           can('review') && (
             <button className="btn-accent" onClick={() => setAddOpen(true)}>
-              <UserPlus className="h-4.5 w-4.5" /> Add Beneficiary / <span className="ta">சேர்</span>
+              <UserPlus className="h-4.5 w-4.5" /> Add Beneficiary <span className="ta">/ சேர்</span>
             </button>
           )
         }
       />
 
       {/* KPIs */}
-      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard icon={<BadgeIndianRupee className="h-5.5 w-5.5" />} label="Total Funding Distributed" labelTa="மொத்த நிதி" value={formatINR(kpis.total, { compact: true })} tone="primary" />
         <KpiCard icon={<Users className="h-5.5 w-5.5" />} label="Active Beneficiaries" labelTa="செயலில் உள்ளோர்" value={String(kpis.active)} tone="sky" />
         <KpiCard icon={<GraduationCap className="h-5.5 w-5.5" />} label="Completed Programs" labelTa="நிறைவு பெற்றோர்" value={String(kpis.completed)} tone="emerald" />
@@ -116,44 +128,44 @@ export function BeneficiariesPage() {
       </div>
 
       {/* Placement tracker */}
-      <div className="glass-card mt-6 p-5">
+      <div className="card mt-6 p-5">
         <h2 className="section-title mb-4">
-          Post-Graduation & Career Placement Tracker / <span className="ta text-amber-600 dark:text-amber-300">பட்டதாரி வேலைவாய்ப்பு கண்காணிப்பு</span>
+          Post-Graduation & Career Placement Tracker <span className="ta text-amber-600">/ பட்டதாரி வேலைவாய்ப்பு கண்காணிப்பு</span>
         </h2>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl bg-emerald-500/10 p-4">
-            <p className="text-xs font-medium text-surface-500 dark:text-surface-400">Placement Rate / <span className="ta">வேலை விகிதம்</span></p>
-            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-300">{placement.rate}%</p>
-            <p className="text-xs text-surface-400">{placement.surveyed.length} graduates surveyed / <span className="ta">கணக்கெடுக்கப்பட்டவர்</span></p>
+            <p className="text-xs font-medium text-surface-500">Placement Rate <span className="ta">/ வேலை விகிதம்</span></p>
+            <p className="text-2xl font-semibold text-emerald-600">{placement.rate}%</p>
+            <p className="text-xs text-surface-400">{placement.surveyed.length} graduates surveyed <span className="ta">/ கணக்கெடுக்கப்பட்டவர்</span></p>
           </div>
           <div className="rounded-xl bg-primary-500/10 p-4">
-            <p className="text-xs font-medium text-surface-500 dark:text-surface-400">Average Starting Salary / <span className="ta">சராசரி தொடக்க சம்பளம்</span></p>
-            <p className="text-2xl font-black text-primary-700 dark:text-primary-300">{formatINR(Math.round(placement.avgSalary))}</p>
-            <p className="text-xs text-surface-400">per month from verified offers / <span className="ta">மாதம்</span></p>
+            <p className="text-xs font-medium text-surface-500">Average Starting Salary <span className="ta">/ சராசரி தொடக்க சம்பளம்</span></p>
+            <p className="text-2xl font-semibold text-primary-700">{formatINR(Math.round(placement.avgSalary))}</p>
+            <p className="text-xs text-surface-400">per month from verified offers <span className="ta">/ மாதம்</span></p>
           </div>
           <div className="rounded-xl bg-amber-500/10 p-4">
-            <p className="text-xs font-medium text-surface-500 dark:text-surface-400">Higher Studies / Other / <span className="ta">மேற்படிப்பு / மற்றவை</span></p>
-            <p className="text-2xl font-black text-amber-600 dark:text-amber-300">{placement.other.length}</p>
-            <p className="text-xs text-surface-400">M.E, MBA, govt exams, business / <span className="ta">அரசுத் தேர்வு, தொழில்</span></p>
+            <p className="text-xs font-medium text-surface-500">Higher Studies / Other <span className="ta">/ மேற்படிப்பு / மற்றவை</span></p>
+            <p className="text-2xl font-semibold text-amber-600">{placement.other.length}</p>
+            <p className="text-xs text-surface-400">M.E, MBA, govt exams, business <span className="ta">/ அரசுத் தேர்வு, தொழில்</span></p>
           </div>
         </div>
 
         {placement.seeking.length > 0 && (
-          <div className="mt-4 rounded-xl border border-amber-300/70 bg-amber-50/80 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
-            <p className="flex items-center gap-2 text-sm font-bold text-amber-700 dark:text-amber-300">
+          <div className="mt-4 rounded-xl border border-amber-300/70 bg-amber-50/80 p-4">
+            <p className="flex items-center gap-2 text-sm font-bold text-amber-700">
               <AlertTriangle className="h-4.5 w-4.5" />
-              {placement.seeking.length} student(s) seeking placement help / <span className="ta">வேலை தேடும் மாணவர்கள்</span>
+              {placement.seeking.length} student(s) seeking placement help <span className="ta">/ வேலை தேடும் மாணவர்கள்</span>
             </p>
             <ul className="mt-2.5 space-y-2">
               {placement.seeking.map((b) => (
                 <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span>
-                    <b className="text-surface-800 dark:text-surface-100">{b.name}</b> — {b.careerSurvey?.preferredRoles} ·{' '}
+                    <b className="text-surface-800">{b.name}</b> — {b.careerSurvey?.preferredRoles} ·{' '}
                     <span className="ta">எதிர்பார்ப்பு</span> {formatINR(b.careerSurvey?.expectedSalary ?? 0)}
                     {b.careerSurvey?.resumeFileName ? ' · 📄 resume' : ' · ⚠️ no resume'}
                   </span>
                   <button className="btn-ghost !px-2.5 !py-1 !text-xs" onClick={() => setCareerFor(b)}>
-                    Record Status / <span className="ta">பதிவு செய்</span>
+                    Record Status <span className="ta">/ பதிவு செய்</span>
                   </button>
                 </li>
               ))}
@@ -164,9 +176,9 @@ export function BeneficiariesPage() {
 
       {/* Charts */}
       <div className="mt-6 grid gap-5 lg:grid-cols-5">
-        <div className="glass-card p-5 lg:col-span-3">
+        <div className="card p-5 lg:col-span-3">
           <h2 className="section-title mb-4 text-base">
-            Funding Trajectory (12 months) / <span className="ta">நிதி பாதை</span>
+            Funding Trajectory (12 months) <span className="ta">/ நிதி பாதை</span>
           </h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -191,9 +203,9 @@ export function BeneficiariesPage() {
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="glass-card p-5 lg:col-span-2">
+        <div className="card p-5 lg:col-span-2">
           <h2 className="section-title mb-4 text-base">
-            Allocation by Category & Level / <span className="ta">வகை வாரியான ஒதுக்கீடு</span>
+            Allocation by Category & Level <span className="ta">/ வகை வாரியான ஒதுக்கீடு</span>
           </h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -215,18 +227,18 @@ export function BeneficiariesPage() {
             </ResponsiveContainer>
           </div>
           <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            <span className="badge bg-primary-600/10 text-primary-700 dark:text-primary-300">School {formatINR(breakdown.byLevel.schooling, { compact: true })}</span>
-            <span className="badge bg-amber-500/10 text-amber-700 dark:text-amber-300">UG {formatINR(breakdown.byLevel.undergraduate, { compact: true })}</span>
-            <span className="badge bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">PG {formatINR(breakdown.byLevel.postgraduate, { compact: true })}</span>
+            <span className="badge bg-primary-600/10 text-primary-700">School {formatINR(breakdown.byLevel.schooling, { compact: true })}</span>
+            <span className="badge bg-amber-500/10 text-amber-700">UG {formatINR(breakdown.byLevel.undergraduate, { compact: true })}</span>
+            <span className="badge bg-indigo-500/10 text-indigo-700">PG {formatINR(breakdown.byLevel.postgraduate, { compact: true })}</span>
           </div>
         </div>
       </div>
 
       {/* Roster */}
-      <div className="glass-card mt-6 overflow-hidden">
+      <div className="card mt-6 overflow-hidden">
         <div className="p-5 pb-3">
           <h2 className="section-title">
-            Beneficiary Roster / <span className="ta text-amber-600 dark:text-amber-300">பயனாளிகள் பட்டியல்</span>
+            Beneficiary Roster <span className="ta text-amber-600">/ பயனாளிகள் பட்டியல்</span>
           </h2>
         </div>
         {store.beneficiaries.length === 0 ? (
@@ -236,9 +248,9 @@ export function BeneficiariesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-surface-50 text-xs uppercase tracking-wide text-surface-400 dark:bg-surface-800/60">
+              <thead className="bg-surface-50 text-xs uppercase tracking-wide text-surface-400">
                 <tr>
-                  <th className="px-4 py-2.5 font-semibold">Name / <span className="ta">பெயர்</span></th>
+                  <th className="px-4 py-2.5 font-semibold">Name <span className="ta">/ பெயர்</span></th>
                   <th className="px-4 py-2.5 font-semibold">Category</th>
                   <th className="px-4 py-2.5 font-semibold">Program</th>
                   <th className="px-4 py-2.5 font-semibold">Funding (₹)</th>
@@ -249,22 +261,22 @@ export function BeneficiariesPage() {
                   <th className="px-4 py-2.5 font-semibold" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
+              <tbody className="divide-y divide-surface-100">
                 {store.beneficiaries.map((b) => (
-                  <tr key={b.id} className="transition hover:bg-surface-50/70 dark:hover:bg-surface-800/40">
-                    <td className="px-4 py-3 font-semibold text-surface-800 dark:text-surface-100">{b.name}</td>
-                    <td className="px-4 py-3 capitalize text-surface-600 dark:text-surface-300">{b.category.replace('_', ' ')}</td>
-                    <td className="max-w-[220px] truncate px-4 py-3 text-surface-600 dark:text-surface-300">{b.program}</td>
-                    <td className="px-4 py-3 font-bold text-primary-700 dark:text-primary-300">{formatINR(b.fundingReceived)}</td>
-                    <td className="px-4 py-3 text-surface-600 dark:text-surface-300">{b.currentGpa || '—'}</td>
+                  <tr key={b.id} className="transition hover:bg-surface-50/70">
+                    <td className="px-4 py-3 font-semibold text-surface-800">{b.name}</td>
+                    <td className="px-4 py-3 capitalize text-surface-600">{b.category.replace('_', ' ')}</td>
+                    <td className="max-w-[220px] truncate px-4 py-3 text-surface-600">{b.program}</td>
+                    <td className="px-4 py-3 font-bold text-primary-700">{formatINR(b.fundingReceived)}</td>
+                    <td className="px-4 py-3 text-surface-600">{b.currentGpa || '—'}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`badge ${
                           b.status === 'active'
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                            ? 'bg-emerald-100 text-emerald-700'
                             : b.status === 'completed'
-                              ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
-                              : 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400'
+                              ? 'bg-sky-100 text-sky-700'
+                              : 'bg-surface-100 text-surface-500'
                         }`}
                       >
                         {b.status}
@@ -296,6 +308,7 @@ export function BeneficiariesPage() {
 }
 
 function AddBeneficiaryDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const bi = useBi()
   const store = useStore()
   const [name, setName] = useState('')
   const [program, setProgram] = useState('')
@@ -338,16 +351,16 @@ function AddBeneficiaryDialog({ open, onClose }: { open: boolean; onClose: () =>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Category" labelTa="வகை">
             <select className="input-base" value={category} onChange={(e) => setCategory(e.target.value as Beneficiary['category'])}>
-              <option value="education">Education / கல்வி</option>
-              <option value="health_social">Health & Social / சுகாதாரம்</option>
-              <option value="business">Business / தொழில்</option>
+              <option value="education">{bi("Education / கல்வி")}</option>
+              <option value="health_social">{bi("Health & Social / சுகாதாரம்")}</option>
+              <option value="business">{bi("Business / தொழில்")}</option>
             </select>
           </Field>
           <Field label="Education Level" labelTa="கல்வி நிலை">
             <select className="input-base" value={level} onChange={(e) => setLevel(e.target.value as NonNullable<Beneficiary['educationLevel']>)}>
-              <option value="schooling">Schooling / பள்ளி</option>
-              <option value="undergraduate">Undergraduate / இளநிலை</option>
-              <option value="postgraduate">Postgraduate / முதுநிலை</option>
+              <option value="schooling">{bi("Schooling / பள்ளி")}</option>
+              <option value="undergraduate">{bi("Undergraduate / இளநிலை")}</option>
+              <option value="postgraduate">{bi("Postgraduate / முதுநிலை")}</option>
             </select>
           </Field>
           <Field label="Funding Received (₹)" labelTa="பெற்ற நிதி (₹)">
@@ -358,9 +371,9 @@ function AddBeneficiaryDialog({ open, onClose }: { open: boolean; onClose: () =>
           </Field>
         </div>
         <div className="flex justify-end gap-2">
-          <button className="btn-ghost" onClick={onClose}>Cancel / <span className="ta">ரத்து</span></button>
+          <button className="btn-ghost" onClick={onClose}>Cancel <span className="ta">/ ரத்து</span></button>
           <button className="btn-primary" onClick={() => void save()}>
-            <Plus className="h-4 w-4" /> Add / <span className="ta">சேர்</span>
+            <Plus className="h-4 w-4" /> Add <span className="ta">/ சேர்</span>
           </button>
         </div>
       </div>

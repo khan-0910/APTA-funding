@@ -69,42 +69,70 @@ One-time migration runbook (Dashboard → SQL Editor + Authentication settings):
 
 ### Go-live checklist
 
-0. **Project is awake.** Free-tier Supabase projects pause after inactivity. When paused, the
-   `<ref>.supabase.co` host stops resolving and the live site silently shows empty data. Open
-   the dashboard and click **Restore project** if you see a paused banner.
-1. Dashboard → Authentication settings as above (Email on, Confirm email off, Site URL set).
-2. SQL Editor → run **part1**, then **part1b**.
+0. **Project is awake.** Free-tier Supabase projects pause after inactivity; the
+   `<ref>.supabase.co` host then stops resolving and the live site shows no data. Dashboard →
+   **Restore project**.
+1. Authentication settings as above. Site URL = the live URL; also add it (and
+   `http://localhost:5173/APTA-funding/`) under **Redirect URLs** so confirmation and reset links work.
+2. SQL Editor → **part1**, then **part1b**.
    Check: `select count(*) from user_accounts where auth_uid is not null;`
-3. Sign up / link the admin + staff emails (step 3 above), then **sign in on the live site** as
-   admin and confirm the dashboards show data.
-4. SQL Editor → run **part2** (lockdown).
-   Check: open the live site in a private window. The landing stats still load (via the
-   `apta_public_stats()` RPC), but `/dashboard/beneficiaries` shows nothing until you sign in.
-5. Push to `main`. GitHub Actions builds and deploys to Pages.
+3. Sign up / link the admin + staff emails (step 3 above) and **sign in on the live site** as admin.
+4. SQL Editor → **part2** (drops anonymous access).
+   Check: in a private window the homepage numbers still load, dashboards show nothing until sign-in.
+5. SQL Editor → **part3-roles** (per-role access + document storage). From here:
+   - students only see their own profile, applications, beneficiary record and progress reports;
+   - only staff/admin can approve, edit funding, the ledger or partners; only an admin can change
+     anyone's role (enforced by triggers, not just the UI);
+   - documents go to the private `documents` Storage bucket (PDF/PNG/JPG, 5 MB), readable by the
+     owner and staff through 60-second signed links.
+   Legacy (pre-Auth) users sign up again with the same email; part 1b links their old profile.
+6. Push to `main`; GitHub Actions builds and deploys.
 
-After part 2 the app re-fetches all tables on every Supabase sign-in/sign-out, so signed-in
-users get their data immediately and a shared computer is cleared on sign-out.
+### Email confirmation & SMTP
+
+Supabase's built-in mailer is rate-limited (a few emails an hour) and meant for testing. Before
+turning **Confirm email** on:
+
+1. Create an SMTP account (Resend, Postmark, Amazon SES, Brevo… any works) and verify a sending
+   domain, e.g. `mail.aptaempowers.org`.
+2. Dashboard → Authentication → **SMTP Settings** → enable custom SMTP, paste host/port/user/password,
+   sender `no-reply@…`.
+3. Authentication → Sign In / Up → turn **Confirm email** on.
+
+The app already handles it: sign-up shows "check your email", the link returns to `/login`, and an
+admin creating a staff account still gets the role applied immediately.
+
+### Custom domain
+
+1. Settings → Pages → Custom domain → `www.example.org` (GitHub adds a `CNAME`); add the DNS record
+   GitHub shows.
+2. Settings → Secrets and variables → Actions → **Variables** → `SITE_BASE` = `/`.
+3. Update Supabase Site URL / Redirect URLs to the new domain, then re-run the deploy.
+
+Routing, the 404 deep-link fallback and auth redirects all follow `SITE_BASE`.
 
 ## Feature Map
 
-- **Landing (`/`)** — bilingual hero, live impact stats computed from your data, 3-step How It Works.
-- **Application form (`/applications/new`)** — 8 sections matching the physical Salem form, side-by-side Tamil on every field, Aadhaar & +91 phone masks, conditional School/College fields, live Indian academic-calendar projection (July–May session, 4-year completion window), multi-file uploader, and the exact bilingual Zakkath undertaking.
+- **Landing (`/`)** — GSAP scroll-driven homepage: masked headline reveal, count-up impact numbers (aggregate-only RPC for visitors), scroll-lit mission statement, pinned "How it works" with a progress rail. Honours `prefers-reduced-motion`.
+- **Language** — header switch between English and English + தமிழ். Every Tamil string sits in a `.ta` element, so English mode is one CSS rule; plain strings (`<option>`, placeholders) go through `useBi()`, runtime messages through `<T>` (`src/lib/lang.tsx`).
+- **Application form (`/applications/new`)** — 8 sections matching the physical Salem form, side-by-side Tamil on every field, Aadhaar & +91 phone masks, conditional School/College fields, live Indian academic-calendar projection (July–May session, 4-year completion window), multi-file uploader (PDF/PNG/JPG, stored in Supabase Storage), sign-in required, and the exact bilingual Zakkath undertaking.
 - **Application detail (`/applications/:id`)** — multi-tab bilingual record, Page-8 Office-Use-Only review (field notes, verification checklist, sanction, NEFT/cheque ref), staff Approve/Reject with notes (auto-creates a beneficiary), and 1-click print (`window.print()` with a clean `@media print` layout).
 - **My Applications (`/applications`)** — status tracking, search, graduation-milestone banner for final-year students opening the Career & Salary Survey.
 - **Career survey modal** — 5 employment statuses with conditional fields (offer details + salary, placement-help with resume + mentor opt-in, PG program, exam prep, entrepreneurship). Persists to both the Application and Beneficiary records.
-- **Beneficiaries dashboard (`/dashboard/beneficiaries`)** — funding KPIs, placement rate & average starting salary, actionable "seeking help" alert list, 12-month funding-trajectory area chart, category/level allocation bars, roster with color-coded career badges, Add Beneficiary dialog.
+- **Beneficiaries dashboard (`/dashboard/beneficiaries`, staff only)** — funding KPIs, placement rate & average starting salary, actionable "seeking help" alert list, 12-month funding-trajectory area chart, category/level allocation bars, roster with color-coded career badges, Add Beneficiary dialog.
 - **Progress reports** — students submit semester GPA reports (`/progress-reports`); staff review them with notes (`/staff/progress-reports`).
 - **Accounting (`/staff/accounting`)** — inflow/outflow ledger with an Add Entry dialog, net balance, 1-click reconciliation toggles.
 - **Partners (`/staff/partners`)** — CSR/NGO/foundation directory with contributions.
-- **Accounts & audit** — `/register` + `/login` with per-account login counts; every auth event (LOGIN_SUCCESS / LOGIN_FAILED / ACCOUNT_CREATED / LOGOUT) logged with IP, user-agent, timestamp; staff/admin Database Viewer modal (header DB icon) with an admin-only **Clear All Data** action (wipes local storage and all Supabase tables).
+- **Accounts & audit** — `/register` + `/login` with per-account login counts; every auth event (LOGIN_SUCCESS / LOGIN_FAILED / ACCOUNT_CREATED / LOGOUT) logged with user-agent and timestamp (the browser can't see its public IP; Supabase's auth logs have it); staff/admin Database Viewer modal (header DB icon) with an admin-only **Clear All Data** action (wipes local storage and all Supabase tables).
 
 ## Architecture
 
 - React 18 + TypeScript (strict) + Vite + React Router v6.
-- Tailwind CSS v4 (`@custom-variant dark`) with the APTA school palette: navy `primary`, academic gold (Tailwind's `amber-*` scale is overridden with gold, so every accent follows), cool slate `surface` neutrals. Source Serif 4 headings, Inter body, Noto Sans Tamil. Cards (`.glass-card`, `.card-hover`), navy sidebar (`.glass-sidebar`), persistent dark mode (`apta-theme`).
-- Motion is CSS-only (`src/index.css` → *Motion*, hooks in `src/lib/motion.ts`): route fade-up, staggered card entrance, scroll reveal, count-up stats, modal/drawer transitions, one-pass button sheen. Everything is disabled under `prefers-reduced-motion`.
+- Tailwind CSS v4, light theme only: blue `primary`, a little gold (`amber-*` is overridden), slate `surface`. Inter for UI, Source Serif 4 for homepage display type, Noto Sans Tamil.
+- Motion: GSAP (ScrollTrigger + SplitText) on the homepage only; app screens keep to short fades for modals, drawers and page changes.
 - The header **DEV role switcher only exists in `npm run dev`**. Production builds always use the role stored on the account.
-- **Dual-layer persistence**: Supabase PostgreSQL is the source of truth when configured (hydrate on load + push on every mutation, all 7 tables). Otherwise localStorage (`apta-*` keys) is used with zero seed data. 200–300 ms simulated latency keeps interactions consistent. See `supabase/schema.sql` (RLS included).
+- **Persistence**: Supabase PostgreSQL when configured — hydrate on load, re-fetch on sign-in/out, and push **only the rows that changed** (rows are replaced immutably, so "changed" is an identity check against the last synced copy; a row RLS rejects is retried on its own so it can't block the rest). Otherwise localStorage (`apta-*` keys). Production builds ship a Content-Security-Policy meta tag (`vite.config.ts`).
+- Heavy staff screens (charts) and the application form are lazy-loaded routes.
 - Icons: lucide-react. Charts: Recharts.
 
 ## Project Layout

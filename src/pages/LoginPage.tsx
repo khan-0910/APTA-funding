@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { T } from '@/lib/lang'
 import { GraduationCap, KeyRound } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { Field } from '@/components/ui'
@@ -39,16 +40,16 @@ export function LoginPage() {
 
   return (
     <div className="mx-auto max-w-md py-6">
-      <div className="glass-card relative overflow-hidden p-7 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-gradient-to-r before:from-primary-800 before:via-amber-400 before:to-primary-800">
+      <div className="card p-7">
         <div className="mb-5 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-700 to-primary-950 text-amber-300 ring-1 ring-amber-400/50">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
             <GraduationCap className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-primary-900 dark:text-surface-50">
-              Sign In <span className="ta text-amber-600 dark:text-amber-300">/ உள்நுழைவு</span>
+            <h1 className="text-xl font-bold text-surface-900">
+              Sign In <span className="ta text-amber-600">/ உள்நுழைவு</span>
             </h1>
-            <p className="text-xs text-surface-500 dark:text-surface-400">APTA Empowers staff & student portal</p>
+            <p className="text-xs text-surface-500">APTA Empowers staff & student portal</p>
           </div>
         </div>
 
@@ -59,14 +60,14 @@ export function LoginPage() {
           <Field label="Password" labelTa="கடவுச்சொல்" required>
             <input className="input-base" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
           </Field>
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300">{error}</p>}
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600"><T>{error}</T></p>}
           {resetSent && (
-            <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
-              Reset link sent — check your email / மீட்டமைப்பு இணைப்பு அனுப்பப்பட்டது — மின்னஞ்சலை சரிபார்க்கவும்.
+            <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700">
+              Reset link sent — check your email<span className="ta">/ மீட்டமைப்பு இணைப்பு அனுப்பப்பட்டது — மின்னஞ்சலை சரிபார்க்கவும்.</span>
             </p>
           )}
           <button className="btn-primary w-full" disabled={busy}>
-            {busy ? 'Signing in…' : 'Sign In / உள்நுழை'}
+            {busy ? 'Signing in…' : <T>{'Sign In / உள்நுழை'}</T>}
           </button>
         </form>
 
@@ -74,20 +75,20 @@ export function LoginPage() {
           type="button"
           onClick={() => void sendReset()}
           disabled={resetBusy}
-          className="mt-3 flex w-full items-center justify-center gap-1.5 text-sm text-surface-500 hover:text-primary-600 disabled:opacity-50 dark:text-surface-400 dark:hover:text-primary-400"
+          className="mt-3 flex w-full items-center justify-center gap-1.5 text-sm text-surface-500 hover:text-primary-600 disabled:opacity-50"
         >
           <KeyRound className="h-3.5 w-3.5" />
-          {resetBusy ? 'Sending…' : 'Forgot password? / கடவுச்சொல் மறந்ததா?'}
+          {resetBusy ? 'Sending…' : <T>{'Forgot password? / கடவுச்சொல் மறந்ததா?'}</T>}
         </button>
 
-        <p className="mt-4 text-center text-sm text-surface-500 dark:text-surface-400">
+        <p className="mt-4 text-center text-sm text-surface-500">
           New here?{' '}
-          <Link to="/register" className="font-semibold text-primary-600 hover:underline dark:text-primary-400">
-            Register / <span className="ta">பதிவு செய்யுங்கள்</span>
+          <Link to="/register" className="font-semibold text-primary-600 hover:underline">
+            Register <span className="ta">/ பதிவு செய்யுங்கள்</span>
           </Link>
         </p>
 
-        <p className="mt-4 text-center text-xs text-surface-400 dark:text-surface-500">
+        <p className="mt-4 text-center text-xs text-surface-400">
           Students register here; Staff and Admin accounts are created by the organisation's Admin.
           <span className="ta block">மாணவர்கள் இங்கே பதிவு செய்யலாம்; ஊழியர் மற்றும் நிர்வாகி கணக்குகளை நிர்வாகி உருவாக்குவார்.</span>
         </p>

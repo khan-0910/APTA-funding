@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useBi, T } from '@/lib/lang'
 import { CalendarDays, CheckCircle2, FileText, Trash2, Upload } from 'lucide-react'
 import { Field, PageHeader, SectionCard } from '@/components/ui'
 import { emptyDraft, type ApplicationDraft } from '@/lib/applicationDraft'
@@ -7,6 +8,7 @@ import { computeAcademicProjection } from '@/lib/academic'
 import { formatAadhaar, formatIndianMobile, formatINR } from '@/lib/format'
 import { useStore } from '@/lib/store'
 import { useAuth } from '@/lib/auth'
+import { checkUpload, storeFile } from '@/lib/persistence'
 import type { Application, AttachedDocument } from '@/types'
 
 const uid = (p: string): string => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -14,6 +16,7 @@ const uid = (p: string): string => `${p}-${Date.now().toString(36)}-${Math.rando
 const DOC_CATEGORIES = ['Aadhaar Card', 'Income Certificate', 'Fee Receipt', 'Mark Sheet', 'Other']
 
 export function NewApplicationPage() {
+  const bi = useBi()
   const store = useStore()
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -22,6 +25,8 @@ export function NewApplicationPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submissionError, setSubmissionError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  // The File objects behind the attachment list; uploaded only on submit.
+  const fileStore = useRef(new Map<string, File>())
   const [docCategory, setDocCategory] = useState(DOC_CATEGORIES[0])
 
   const projection = useMemo(
@@ -40,9 +45,17 @@ export function NewApplicationPage() {
   const handleFiles = (files: FileList | null) => {
     if (!files) return
     const next: AttachedDocument[] = []
+    const rejected: string[] = []
     for (const f of Array.from(files)) {
+      const problem = checkUpload(f)
+      if (problem) {
+        rejected.push(problem)
+        continue
+      }
+      const id = uid('doc')
+      fileStore.current.set(id, f)
       next.push({
-        id: uid('doc'),
+        id,
         name: f.name,
         type: f.type || 'application/octet-stream',
         size: f.size,
@@ -51,12 +64,33 @@ export function NewApplicationPage() {
       })
     }
     setAttachments((prev) => [...prev, ...next])
+    setSubmissionError(rejected.join(' '))
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const clearAll = () => {
+    setDraft(emptyDraft())
+    setAttachments([])
+    fileStore.current.clear()
+    setSubmissionError('')
   }
 
   const submit = async () => {
     setSubmissionError('')
+    if (!user) {
+      setSubmissionError('Please sign in before submitting / சமர்ப்பிக்கும் முன் உள்நுழையவும்.')
+      return
+    }
     if (!draft.basicInfo.fullName.trim()) {
       setSubmissionError('Full name is required / முழுப் பெயர் தேவை.')
+      return
+    }
+    if (draft.basicInfo.mobile.replace(/\D/g, '').length !== 10) {
+      setSubmissionError('Enter a 10-digit mobile number / 10 இலக்க கைபேசி எண்ணை உள்ளிடவும்.')
+      return
+    }
+    if (!(Number(draft.purpose.amountRequired) > 0)) {
+      setSubmissionError('Enter the amount required / தேவையான தொகையை உள்ளிடவும்.')
       return
     }
     if (!draft.declaration.undertakingAgreed) {
@@ -64,9 +98,23 @@ export function NewApplicationPage() {
       return
     }
     setSubmitting(true)
+    const appId = uid('app')
+    let stored: AttachedDocument[]
+    try {
+      stored = await Promise.all(
+        attachments.map(async (doc) => {
+          const file = fileStore.current.get(doc.id)
+          return file ? { ...doc, ...(await storeFile(file, appId)) } : doc
+        }),
+      )
+    } catch (err) {
+      setSubmitting(false)
+      setSubmissionError((err as Error).message)
+      return
+    }
     const app: Application = {
-      id: uid('app'),
-      studentId: user?.id ?? 'guest',
+      id: appId,
+      studentId: user.id,
       studentName: draft.basicInfo.fullName,
       category: draft.purpose.category === '' ? 'education' : draft.purpose.category,
       educationLevel:
@@ -124,12 +172,30 @@ export function NewApplicationPage() {
         },
       },
       purposeOfAssistance: { ...draft.purpose },
-      supportingDocuments: { checklist: DOC_CATEGORIES, attachments },
+      supportingDocuments: { checklist: DOC_CATEGORIES, attachments: stored },
       declaration: draft.declaration,
     }
     await store.saveApplication(app)
     setSubmitting(false)
     navigate(`/applications/${app.id}`)
+  }
+
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-md py-10">
+        <div className="card p-7 text-center">
+          <h1 className="text-lg font-semibold text-surface-900">Sign in to apply</h1>
+          <p className="ta mt-0.5 text-sm text-surface-500">விண்ணப்பிக்க உள்நுழையவும்</p>
+          <p className="mt-3 text-sm text-surface-600">
+            Your application, documents and its status are tied to your account so only you and APTA staff can see them.
+          </p>
+          <div className="mt-6 flex justify-center gap-2">
+            <Link to="/login" className="btn-primary">Sign in</Link>
+            <Link to="/register" className="btn-ghost">Create account</Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -140,8 +206,8 @@ export function NewApplicationPage() {
         subtitle="All information is kept confidential and used only for Zakkath eligibility."
         subtitleTa="வழங்கிய தகவல்கள் இரகசியமாக வைக்கப்படும்."
         actions={
-          <button className="btn-ghost" onClick={() => setDraft(emptyDraft)}>
-            <Trash2 className="h-4 w-4" /> Clear Form / <span className="ta">படிவத்தை காலி செய்</span>
+          <button className="btn-ghost" onClick={clearAll}>
+            <Trash2 className="h-4 w-4" /> Clear Form <span className="ta">/ படிவத்தை காலி செய்</span>
           </button>
         }
       />
@@ -157,10 +223,10 @@ export function NewApplicationPage() {
           </Field>
           <Field label="Gender" labelTa="பாலினம்" required>
             <select className="input-base" value={draft.basicInfo.gender} onChange={(e) => set('basicInfo', { gender: e.target.value as ApplicationDraft['basicInfo']['gender'] })}>
-              <option value="">— Select / தேர்வு —</option>
-              <option value="Male">Male / ஆண்</option>
-              <option value="Female">Female / பெண்</option>
-              <option value="Other">Other / மற்றவை</option>
+              <option value="">{bi("— Select / தேர்வு —")}</option>
+              <option value="Male">{bi("Male / ஆண்")}</option>
+              <option value="Female">{bi("Female / பெண்")}</option>
+              <option value="Other">{bi("Other / மற்றவை")}</option>
             </select>
           </Field>
           <Field label="Door / Flat No" labelTa="கதவு / பிளாட் எண்">
@@ -199,9 +265,9 @@ export function NewApplicationPage() {
           </Field>
           <Field label="Marital Status" labelTa="திருமண நிலை">
             <select className="input-base" value={draft.basicInfo.maritalStatus} onChange={(e) => set('basicInfo', { maritalStatus: e.target.value })}>
-              <option value="">— Select / தேர்வு —</option>
-              <option>Unmarried / திருமணம் ஆகாதவர்</option>
-              <option>Married / திருமணமானவர்</option>
+              <option value="">{bi("— Select / தேர்வு —")}</option>
+              <option>{bi("Unmarried / திருமணம் ஆகாதவர்")}</option>
+              <option>{bi("Married / திருமணமானவர்")}</option>
             </select>
           </Field>
         </div>
@@ -215,8 +281,8 @@ export function NewApplicationPage() {
             value={draft.education.educationType}
             onChange={(e) => set('education', { educationType: e.target.value as ApplicationDraft['education']['educationType'] })}
           >
-            <option value="school">School / பள்ளி</option>
-            <option value="college">College / Higher Education / கல்லூரி / உயர் கல்வி</option>
+            <option value="school">{bi("School / பள்ளி")}</option>
+            <option value="college">{bi("College / Higher Education / கல்லூரி / உயர் கல்வி")}</option>
           </select>
         </Field>
 
@@ -231,8 +297,8 @@ export function NewApplicationPage() {
           </div>
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <Field label="Year of Study" labelTa="படிக்கும் ஆண்டு" required hint='e.g. "1st Year / முதலாம் ஆண்டு", "Final Year"'>
-              <input className="input-base" value={draft.education.collegeYear} onChange={(e) => set('education', { collegeYear: e.target.value })} placeholder="3rd Year / மூன்றாம் ஆண்டு" />
+            <Field label="Year of Study" labelTa="படிக்கும் ஆண்டு" required hint='e.g. 1st Year, Final Year'>
+              <input className="input-base" value={draft.education.collegeYear} onChange={(e) => set('education', { collegeYear: e.target.value })} placeholder={bi("3rd Year / மூன்றாம் ஆண்டு")} />
             </Field>
             <Field label="Course / Degree & Specialization" labelTa="படிக்கும் படிப்பு / துறை" required>
               <input className="input-base" value={draft.education.collegeCourse} onChange={(e) => set('education', { collegeCourse: e.target.value })} placeholder="B.E. Computer Science" />
@@ -245,27 +311,27 @@ export function NewApplicationPage() {
 
         {/* Academic calendar projection */}
         {projection && (
-          <div className="mt-5 rounded-xl border border-primary-200 bg-primary-50/70 p-4 dark:border-primary-800 dark:bg-primary-900/25">
-            <p className="flex items-center gap-2 text-sm font-bold text-primary-800 dark:text-primary-200">
+          <div className="mt-5 rounded-xl border border-primary-200 bg-primary-50/70 p-4">
+            <p className="flex items-center gap-2 text-sm font-bold text-primary-800">
               <CalendarDays className="h-4.5 w-4.5" />
-              Academic Calendar Projection / <span className="ta">கல்வியாண்டு கணிப்பு</span>
+              Academic Calendar Projection <span className="ta">/ கல்வியாண்டு கணிப்பு</span>
             </p>
             <div className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
               <div>
-                <p className="text-xs font-medium text-surface-500 dark:text-surface-400">Current Academic Session / <span className="ta">நடப்பு கல்வியாண்டு</span></p>
-                <p className="font-bold text-surface-800 dark:text-surface-100">{projection.currentSessionLabel}</p>
+                <p className="text-xs font-medium text-surface-500">Current Academic Session <span className="ta">/ நடப்பு கல்வியாண்டு</span></p>
+                <p className="font-bold text-surface-800">{projection.currentSessionLabel}</p>
                 <p className="ta text-xs text-surface-500">{projection.currentSessionLabelTa}</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-surface-500 dark:text-surface-400">4-Year Degree Completion / <span className="ta">படிப்பு முடிவு</span></p>
-                <p className="font-bold text-surface-800 dark:text-surface-100">{projection.expectedGraduation}</p>
+                <p className="text-xs font-medium text-surface-500">4-Year Degree Completion <span className="ta">/ படிப்பு முடிவு</span></p>
+                <p className="font-bold text-surface-800">{projection.expectedGraduation}</p>
                 <p className="ta text-xs text-surface-500">{projection.expectedGraduationTa}</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-surface-500 dark:text-surface-400">Duration Remaining / <span className="ta">மீதமுள்ள காலம்</span></p>
-                <p className="font-bold text-amber-600 dark:text-amber-300">{projection.yearsRemainingLabel}</p>
+                <p className="text-xs font-medium text-surface-500">Duration Remaining <span className="ta">/ மீதமுள்ள காலம்</span></p>
+                <p className="font-bold text-amber-600">{projection.yearsRemainingLabel}</p>
                 {projection.isFinalYearOrBeyond && (
-                  <p className="text-xs text-surface-500">Career survey unlocks after this session / <span className="ta">இந்த ஆண்டு முடிந்ததும் தொழில் கணக்கெடுப்பு</span></p>
+                  <p className="text-xs text-surface-500">Career survey unlocks after this session <span className="ta">/ இந்த ஆண்டு முடிந்ததும் தொழில் கணக்கெடுப்பு</span></p>
                 )}
               </div>
             </div>
@@ -283,7 +349,7 @@ export function NewApplicationPage() {
             <input className="input-base" type="number" value={draft.family.fatherAge} onChange={(e) => set('family', { fatherAge: e.target.value })} />
           </Field>
           <Field label="Father's Occupation" labelTa="தந்தையின் தொழில்">
-            <input className="input-base" value={draft.family.fatherOccupation} onChange={(e) => set('family', { fatherOccupation: e.target.value })} placeholder="Daily Wage / தினசரி கூலி" />
+            <input className="input-base" value={draft.family.fatherOccupation} onChange={(e) => set('family', { fatherOccupation: e.target.value })} placeholder={bi("Daily Wage / தினசரி கூலி")} />
           </Field>
           <Field label="Father's Monthly Salary (₹)" labelTa="மாத வருமானம் (₹)">
             <input className="input-base" type="number" min={0} value={draft.family.fatherSalary} onChange={(e) => set('family', { fatherSalary: e.target.value })} />
@@ -295,7 +361,7 @@ export function NewApplicationPage() {
             <input className="input-base" type="number" value={draft.family.motherAge} onChange={(e) => set('family', { motherAge: e.target.value })} />
           </Field>
           <Field label="Mother's Occupation" labelTa="தாயின் தொழில்">
-            <input className="input-base" value={draft.family.motherOccupation} onChange={(e) => set('family', { motherOccupation: e.target.value })} placeholder="Housewife / இல்லத்தரசி" />
+            <input className="input-base" value={draft.family.motherOccupation} onChange={(e) => set('family', { motherOccupation: e.target.value })} placeholder={bi("Housewife / இல்லத்தரசி")} />
           </Field>
           <Field label="Mother's Monthly Salary (₹)" labelTa="மாத வருமானம் (₹)">
             <input className="input-base" type="number" min={0} value={draft.family.motherSalary} onChange={(e) => set('family', { motherSalary: e.target.value })} />
@@ -350,10 +416,10 @@ export function NewApplicationPage() {
               value={draft.dependents.houseOwnership}
               onChange={(e) => set('dependents', { houseOwnership: e.target.value as ApplicationDraft['dependents']['houseOwnership'] })}
             >
-              <option value="">— Select / தேர்வு —</option>
-              <option value="own">Own / சொந்த வீடு</option>
-              <option value="rented">Rented / வாடகை வீடு</option>
-              <option value="other">Other / மற்றவை</option>
+              <option value="">{bi("— Select / தேர்வு —")}</option>
+              <option value="own">{bi("Own / சொந்த வீடு")}</option>
+              <option value="rented">{bi("Rented / வாடகை வீடு")}</option>
+              <option value="other">{bi("Other / மற்றவை")}</option>
             </select>
           </Field>
           {draft.dependents.houseOwnership === 'rented' && (
@@ -367,9 +433,9 @@ export function NewApplicationPage() {
               value={draft.dependents.landVehicleOwnership}
               onChange={(e) => set('dependents', { landVehicleOwnership: e.target.value as ApplicationDraft['dependents']['landVehicleOwnership'] })}
             >
-              <option value="">— Select / தேர்வு —</option>
-              <option value="yes">Yes / உண்டு</option>
-              <option value="no">No / இல்லை</option>
+              <option value="">{bi("— Select / தேர்வு —")}</option>
+              <option value="yes">{bi("Yes / உண்டு")}</option>
+              <option value="no">{bi("No / இல்லை")}</option>
             </select>
           </Field>
         </div>
@@ -402,14 +468,14 @@ export function NewApplicationPage() {
               value={draft.purpose.category}
               onChange={(e) => set('purpose', { category: e.target.value as ApplicationDraft['purpose']['category'] })}
             >
-              <option value="">— Select / தேர்வு —</option>
-              <option value="education">Educational Tuition Fee / கல்விக் கட்டணம்</option>
-              <option value="health_social">Medical Emergency / மருத்துவ அவசரம்</option>
-              <option value="business">Business Aid / தொழில் உதவி</option>
+              <option value="">{bi("— Select / தேர்வு —")}</option>
+              <option value="education">{bi("Educational Tuition Fee / கல்விக் கட்டணம்")}</option>
+              <option value="health_social">{bi("Medical Emergency / மருத்துவ அவசரம்")}</option>
+              <option value="business">{bi("Business Aid / தொழில் உதவி")}</option>
             </select>
           </Field>
           <Field label="Specific Need" labelTa="குறிப்பிட்ட தேவை">
-            <input className="input-base" value={draft.purpose.subCategory} onChange={(e) => set('purpose', { subCategory: e.target.value })} placeholder="Tuition Fee / கல்விக் கட்டணம்" />
+            <input className="input-base" value={draft.purpose.subCategory} onChange={(e) => set('purpose', { subCategory: e.target.value })} placeholder={bi("Tuition Fee / கல்விக் கட்டணம்")} />
           </Field>
           <Field label="Amount Required (₹)" labelTa="தேவைப்படும் தொகை (₹)" required>
             <input className="input-base" type="number" min={0} value={draft.purpose.amountRequired} onChange={(e) => set('purpose', { amountRequired: e.target.value })} />
@@ -430,8 +496,8 @@ export function NewApplicationPage() {
       <SectionCard number={7} title="References" titleTa="சான்றொப்பக் குறிப்புகள்">
         <div className="grid gap-6 lg:grid-cols-2">
           {[0, 1].map((i) => (
-            <div key={i} className="rounded-xl border border-surface-200 p-4 dark:border-surface-700">
-              <p className="mb-3 text-sm font-bold text-surface-700 dark:text-surface-200">Reference {i + 1}</p>
+            <div key={i} className="rounded-xl border border-surface-200 p-4">
+              <p className="mb-3 text-sm font-bold text-surface-700">Reference {i + 1}</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Name" labelTa="பெயர்">
                   <input className="input-base" value={draft.references[i].name} onChange={(e) => setRef(i, 'name', e.target.value)} />
@@ -468,24 +534,27 @@ export function NewApplicationPage() {
           </Field>
           <Field label="Upload Files" labelTa="கோப்புகளை பதிவேற்று" hint="PNG, JPG, PDF — Aadhaar, income certificate, fee receipts, mark sheets">
             <button type="button" className="btn-ghost w-full border-dashed py-6" onClick={() => fileRef.current?.click()}>
-              <Upload className="h-5 w-5" /> Choose files / <span className="ta">கோப்புகளைத் தேர்ந்தெடுக்கவும்</span>
+              <Upload className="h-5 w-5" /> Choose files <span className="ta">/ கோப்புகளைத் தேர்ந்தெடுக்கவும்</span>
             </button>
             <input ref={fileRef} type="file" multiple accept=".png,.jpg,.jpeg,.pdf" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
           </Field>
         </div>
 
         {attachments.length > 0 && (
-          <ul className="mt-3 divide-y divide-surface-100 rounded-xl border border-surface-200 dark:divide-surface-800 dark:border-surface-700">
+          <ul className="mt-3 divide-y divide-surface-100 rounded-xl border border-surface-200">
             {attachments.map((doc) => (
               <li key={doc.id} className="flex items-center gap-3 px-3.5 py-2.5 text-sm">
-                <FileText className="h-4.5 w-4.5 shrink-0 text-primary-600 dark:text-primary-400" />
+                <FileText className="h-4.5 w-4.5 shrink-0 text-primary-600" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-surface-800 dark:text-surface-100">{doc.name}</p>
+                  <p className="truncate font-semibold text-surface-800">{doc.name}</p>
                   <p className="text-xs text-surface-400">
                     {doc.category} · {(doc.size / 1024).toFixed(0)} KB
                   </p>
                 </div>
-                <button type="button" onClick={() => setAttachments((p) => p.filter((d) => d.id !== doc.id))} className="rounded-lg p-1.5 text-surface-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10">
+                <button type="button" onClick={() => {
+                    fileStore.current.delete(doc.id)
+                    setAttachments((p) => p.filter((d) => d.id !== doc.id))
+                  }} className="rounded-lg p-1.5 text-surface-400 hover:bg-red-50 hover:text-red-500">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </li>
@@ -493,7 +562,7 @@ export function NewApplicationPage() {
           </ul>
         )}
 
-        <div className="mt-5 rounded-xl border border-amber-300/70 bg-amber-50/80 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+        <div className="mt-5 rounded-xl border border-amber-300/70 bg-amber-50/80 p-4">
           <label className="flex items-start gap-3">
             <input
               type="checkbox"
@@ -501,9 +570,9 @@ export function NewApplicationPage() {
               onChange={(e) => set('declaration', { undertakingAgreed: e.target.checked })}
               className="mt-1 h-4.5 w-4.5 accent-amber-600"
             />
-            <span className="text-sm leading-relaxed text-surface-800 dark:text-surface-100">
+            <span className="text-sm leading-relaxed text-surface-800">
               <span className="font-semibold">I here by under take that the information provided above is true and that the student is eligible for Zakkath assistance.</span>
-              <span className="ta block text-surface-600 dark:text-surface-300">
+              <span className="ta block text-surface-600">
                 மேற்கண்ட தகவல்கள் உண்மையானவை என்றும் மாணவர் ஜகாத் உதவியை பெறுவதற்கு தகுதியுடையவர் என்றும் உறுதியளிக்கிறேன்.
               </span>
             </span>
@@ -523,21 +592,21 @@ export function NewApplicationPage() {
       </SectionCard>
 
       {submissionError && (
-        <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-600 dark:bg-red-500/10 dark:text-red-300">{submissionError}</p>
+        <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-600"><T>{submissionError}</T></p>
       )}
 
-      <div className="sticky bottom-4 z-20 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-surface-200 bg-white/90 p-3 shadow-lg backdrop-blur dark:border-surface-800 dark:bg-surface-900/90 no-print">
-        <p className="text-xs text-surface-500 dark:text-surface-400">
-          Request preview: <span className="font-bold text-surface-800 dark:text-surface-100">{formatINR(Number(draft.purpose.amountRequired) || 0)}</span>
-          {projection && <> · Graduation: <span className="font-bold text-surface-800 dark:text-surface-100">{projection.expectedGraduation}</span></>}
+      <div className="sticky bottom-4 z-20 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-surface-200 bg-white/90 p-3 shadow-lg backdrop-blur no-print">
+        <p className="text-xs text-surface-500">
+          Request preview: <span className="font-bold text-surface-800">{formatINR(Number(draft.purpose.amountRequired) || 0)}</span>
+          {projection && <> · Graduation: <span className="font-bold text-surface-800">{projection.expectedGraduation}</span></>}
         </p>
         <div className="flex gap-2">
-          <button className="btn-ghost" onClick={() => setDraft(emptyDraft())}>
-            Clear / <span className="ta">அழி</span>
+          <button className="btn-ghost" onClick={clearAll}>
+            Clear <span className="ta">/ அழி</span>
           </button>
           <button className="btn-primary" disabled={submitting} onClick={() => void submit()}>
             <CheckCircle2 className="h-4.5 w-4.5" />
-            {submitting ? 'Submitting…' : 'Submit Application / சமர்ப்பி'}
+            {submitting ? 'Submitting…' : <T>{'Submit Application / சமர்ப்பி'}</T>}
           </button>
         </div>
       </div>

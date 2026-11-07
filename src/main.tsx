@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
-import { ThemeProvider } from '@/lib/theme'
+import { LangProvider } from '@/lib/lang'
 import { StoreProvider } from '@/lib/store'
 import { AuthProvider } from '@/lib/auth'
 import { AppShell } from '@/components/AppShell'
@@ -10,21 +10,18 @@ import { LandingPage } from '@/pages/LandingPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
-import { NewApplicationPage } from '@/pages/NewApplicationPage'
 import { MyApplicationsPage } from '@/pages/MyApplicationsPage'
-import { ApplicationDetailPage } from '@/pages/ApplicationDetailPage'
-import { BeneficiariesPage } from '@/pages/BeneficiariesPage'
 import { ProgressReportsPage } from '@/pages/ProgressReportsPage'
-import { StaffProgressReportsPage } from '@/pages/StaffProgressReportsPage'
-import { AccountingPage } from '@/pages/AccountingPage'
-import { PartnersPage } from '@/pages/PartnersPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
-// GitHub Pages serves the app from /APTA-funding/ — restore deep links staged
+// The app is served from import.meta.env.BASE_URL (/APTA-funding/ on GitHub Pages,
+// / on a custom domain). Restore deep links staged
 // by public/404.html (Pages has no server rewrite, so 404.html stages the path).
 // The route arrives as a ?r= query param: query params survive the extra
 // document load GitHub Pages can perform after the fallback redirect, which
 // sessionStorage-based staging did not.
+const BASE = import.meta.env.BASE_URL
+
 function restoreDeepLink(): void {
   try {
     const url = new URL(window.location.href)
@@ -32,14 +29,14 @@ function restoreDeepLink(): void {
     if (staged !== null) {
       url.searchParams.delete('r')
       window.history.replaceState(null, '', url.pathname + url.search + url.hash)
-      if (staged.startsWith('/APTA-funding/')) {
+      if (staged.startsWith(BASE)) {
         window.history.replaceState(null, '', staged)
         return
       }
     }
     // Legacy path: sessionStorage staging from previously cached 404.html.
     const saved = sessionStorage.getItem('apta-redirect')
-    if (saved && saved.includes('/APTA-funding/')) {
+    if (saved && saved.startsWith(BASE)) {
       sessionStorage.removeItem('apta-redirect')
       window.history.replaceState(null, '', saved)
     }
@@ -59,26 +56,26 @@ const router = createBrowserRouter([
       { path: 'register', element: <RegisterPage /> },
       { path: 'reset', element: <ResetPasswordPage /> },
       { path: 'applications', element: <MyApplicationsPage /> },
-      { path: 'applications/new', element: <NewApplicationPage /> },
-      { path: 'applications/:id', element: <ApplicationDetailPage /> },
-      { path: 'dashboard/beneficiaries', element: <BeneficiariesPage /> },
+      { path: 'applications/new', lazy: () => import('@/pages/NewApplicationPage').then((m) => ({ Component: m.NewApplicationPage })) },
+      { path: 'applications/:id', lazy: () => import('@/pages/ApplicationDetailPage').then((m) => ({ Component: m.ApplicationDetailPage })) },
+      { path: 'dashboard/beneficiaries', lazy: () => import('@/pages/BeneficiariesPage').then((m) => ({ Component: m.BeneficiariesPage })) },
       { path: 'progress-reports', element: <ProgressReportsPage /> },
-      { path: 'staff/progress-reports', element: <StaffProgressReportsPage /> },
-      { path: 'staff/accounting', element: <AccountingPage /> },
-      { path: 'staff/partners', element: <PartnersPage /> },
+      { path: 'staff/progress-reports', lazy: () => import('@/pages/StaffProgressReportsPage').then((m) => ({ Component: m.StaffProgressReportsPage })) },
+      { path: 'staff/accounting', lazy: () => import('@/pages/AccountingPage').then((m) => ({ Component: m.AccountingPage })) },
+      { path: 'staff/partners', lazy: () => import('@/pages/PartnersPage').then((m) => ({ Component: m.PartnersPage })) },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
-], { basename: '/APTA-funding' })
+], { basename: BASE.replace(/\/$/, '') || '/' })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider>
+    <LangProvider>
       <StoreProvider>
         <AuthProvider>
           <RouterProvider router={router} />
         </AuthProvider>
       </StoreProvider>
-    </ThemeProvider>
+    </LangProvider>
   </React.StrictMode>,
 )

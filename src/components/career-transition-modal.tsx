@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { Briefcase, GraduationCap, Landmark, Rocket, Search } from 'lucide-react'
 import type { Beneficiary, CareerStatus, CareerTransitionSurvey } from '@/types'
 import { useStore } from '@/lib/store'
+import { T } from '@/lib/lang'
+import { checkUpload, storeFile } from '@/lib/persistence'
 import { Modal, Field, Bi } from './ui'
 
 const OPTIONS: Array<{
@@ -65,14 +67,16 @@ export function CareerTransitionModal({
   const [jobTitle, setJobTitle] = useState('')
   const [workLocation, setWorkLocation] = useState('')
   const [monthlySalary, setMonthlySalary] = useState('')
-  const [offerFileName, setOfferFileName] = useState('')
+  const [offerFile, setOfferFile] = useState<File | null>(null)
   const [preferredRoles, setPreferredRoles] = useState('')
   const [preferredLocations, setPreferredLocations] = useState('')
   const [expectedSalary, setExpectedSalary] = useState('')
-  const [resumeFileName, setResumeFileName] = useState('')
+  const [resumeFile, setResumeFile] = useState<File | null>(null)
   const [connectWithMentors, setConnectWithMentors] = useState(true)
   const [higherStudiesProgram, setHigherStudiesProgram] = useState('')
   const [notes, setNotes] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   if (!beneficiary) return null
 
@@ -82,18 +86,49 @@ export function CareerTransitionModal({
     setJobTitle('')
     setWorkLocation('')
     setMonthlySalary('')
-    setOfferFileName('')
+    setOfferFile(null)
     setPreferredRoles('')
     setPreferredLocations('')
     setExpectedSalary('')
-    setResumeFileName('')
+    setResumeFile(null)
     setConnectWithMentors(true)
     setHigherStudiesProgram('')
     setNotes('')
+    setError('')
   }
+
+  const pickFile = (set: (f: File | null) => void) => (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null
+    const problem = f ? checkUpload(f) : null
+    setError(problem ?? '')
+    set(problem ? null : f)
+    if (problem) e.target.value = ''
+  }
+
+  const missing =
+    (status === 'already_employed' &&
+      (!companyName.trim() || !jobTitle.trim() || !workLocation.trim() || !(Number(monthlySalary) > 0))) ||
+    (status === 'seeking_job' && (!preferredRoles.trim() || !preferredLocations.trim())) ||
+    (status === 'higher_studies' && !higherStudiesProgram.trim())
 
   const save = async () => {
     if (!status) return
+    if (missing) {
+      setError('Please fill in the required fields / தேவையான புலங்களை நிரப்பவும்.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    let offer: { storagePath?: string } = {}
+    let resume: { storagePath?: string } = {}
+    try {
+      if (status === 'already_employed' && offerFile) offer = await storeFile(offerFile, 'career')
+      if (status === 'seeking_job' && resumeFile) resume = await storeFile(resumeFile, 'career')
+    } catch (err) {
+      setSaving(false)
+      setError((err as Error).message)
+      return
+    }
     const survey: CareerTransitionSurvey = {
       status,
       submittedAt: new Date().toISOString(),
@@ -103,13 +138,15 @@ export function CareerTransitionModal({
       survey.jobTitle = jobTitle
       survey.workLocation = workLocation
       survey.monthlySalary = Number(monthlySalary) || 0
-      survey.offerLetterFileName = offerFileName || undefined
+      survey.offerLetterFileName = offerFile?.name
+      survey.offerLetterPath = offer.storagePath
     }
     if (status === 'seeking_job') {
       survey.preferredRoles = preferredRoles
       survey.preferredLocations = preferredLocations
       survey.expectedSalary = Number(expectedSalary) || 0
-      survey.resumeFileName = resumeFileName || undefined
+      survey.resumeFileName = resumeFile?.name
+      survey.resumePath = resume.storagePath
       survey.connectWithMentors = connectWithMentors
     }
     if (status === 'higher_studies') survey.higherStudiesProgram = higherStudiesProgram
@@ -118,13 +155,15 @@ export function CareerTransitionModal({
     const updated: Beneficiary = { ...beneficiary, careerSurvey: survey }
     await store.upsertBeneficiary(updated)
 
-    const existing = store.applications.find(
-      (a) => a.studentName === beneficiary.name || a.studentId === beneficiary.id,
-    )
+    // Mirror onto the student's latest approved application (linked by account, not name).
+    const existing = beneficiary.studentId
+      ? store.applications.filter((a) => a.studentId === beneficiary.studentId && a.status === 'approved').at(-1)
+      : undefined
     if (existing) {
       await store.saveApplication({ ...existing, careerSurvey: survey })
     }
 
+    setSaving(false)
     reset()
     onSaved?.()
     onClose()
@@ -132,7 +171,7 @@ export function CareerTransitionModal({
 
   return (
     <Modal open={open} onClose={onClose} title="Career & Salary Survey" titleTa="தொழில் வாய்ப்பு கணக்கெடுப்பு" wide>
-      <p className="-mt-1 mb-4 text-sm text-surface-500 dark:text-surface-400">
+      <p className="-mt-1 mb-4 text-sm text-surface-500">
         <Bi
           en={`For ${beneficiary.name} — tell us where you are after graduation so APTA can support your next step.`}
           ta="படிப்பு முடிந்த பிறகு உங்கள் அடுத்த கட்டத்திற்கு APTA உதவ இதை பூர்த்தி செய்யுங்கள்."
@@ -148,14 +187,14 @@ export function CareerTransitionModal({
               onClick={() => setStatus(o.value)}
               className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition ${
                 status === o.value
-                  ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-500/30 dark:bg-primary-900/30'
-                  : 'border-surface-200 hover:border-primary-300 dark:border-surface-700 dark:hover:border-primary-700'
+                  ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-500/30'
+                  : 'border-surface-200 hover:border-primary-300'
               }`}
             >
-              <o.icon className="mt-0.5 h-4.5 w-4.5 shrink-0 text-primary-600 dark:text-primary-400" />
+              <o.icon className="mt-0.5 h-4.5 w-4.5 shrink-0 text-primary-600" />
               <span>
-                <span className="block text-sm font-semibold text-surface-800 dark:text-surface-100">{o.en}</span>
-                <span className="ta block text-xs text-surface-500 dark:text-surface-400">{o.ta}</span>
+                <span className="block text-sm font-semibold text-surface-800">{o.en}</span>
+                <span className="ta block text-xs text-surface-500">{o.ta}</span>
               </span>
             </button>
           ))}
@@ -163,7 +202,7 @@ export function CareerTransitionModal({
       </Field>
 
       {status === 'already_employed' && (
-        <div className="mt-4 grid gap-4 rounded-xl border border-surface-200 p-4 dark:border-surface-700 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 rounded-xl border border-surface-200 p-4 sm:grid-cols-2">
           <Field label="Company Name" labelTa="நிறுவனத்தின் பெயர்" required>
             <input className="input-base" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Zoho, TCS, Infosys…" />
           </Field>
@@ -181,15 +220,15 @@ export function CareerTransitionModal({
               className="input-base"
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
-              onChange={(e) => setOfferFileName(e.target.files?.[0]?.name ?? '')}
+              onChange={pickFile(setOfferFile)}
             />
-            {offerFileName && <p className="mt-1 text-xs text-emerald-600">Attached: {offerFileName}</p>}
+            {offerFile && <p className="mt-1 text-xs text-emerald-700">Attached: {offerFile.name}</p>}
           </Field>
         </div>
       )}
 
       {status === 'seeking_job' && (
-        <div className="mt-4 grid gap-4 rounded-xl border border-surface-200 p-4 dark:border-surface-700 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 rounded-xl border border-surface-200 p-4 sm:grid-cols-2">
           <Field label="Target Job Roles & Domains" labelTa="விருப்பமான பணி & துறை" required>
             <input className="input-base" value={preferredRoles} onChange={(e) => setPreferredRoles(e.target.value)} placeholder="Staff Nurse, Ward Coordinator" />
           </Field>
@@ -204,18 +243,18 @@ export function CareerTransitionModal({
               className="input-base"
               type="file"
               accept=".pdf"
-              onChange={(e) => setResumeFileName(e.target.files?.[0]?.name ?? '')}
+              onChange={pickFile(setResumeFile)}
             />
-            {resumeFileName && <p className="mt-1 text-xs text-emerald-600">Attached: {resumeFileName}</p>}
+            {resumeFile && <p className="mt-1 text-xs text-emerald-700">Attached: {resumeFile.name}</p>}
           </Field>
-          <label className="col-span-full flex items-start gap-2.5 rounded-lg bg-primary-50 p-3 dark:bg-primary-900/25">
+          <label className="col-span-full flex items-start gap-2.5 rounded-lg bg-primary-50 p-3">
             <input
               type="checkbox"
               checked={connectWithMentors}
               onChange={(e) => setConnectWithMentors(e.target.checked)}
               className="mt-0.5 h-4 w-4 accent-primary-600"
             />
-            <span className="text-sm text-surface-700 dark:text-surface-200">
+            <span className="text-sm text-surface-700">
               Connect with APTA Corporate Mentors & Partner Network{' '}
               <span className="ta">— APTA நிறுவன வழிகாட்டிகளுடன் இணைக்கவும்</span>
             </span>
@@ -224,7 +263,7 @@ export function CareerTransitionModal({
       )}
 
       {status === 'higher_studies' && (
-        <div className="mt-4 grid gap-4 rounded-xl border border-surface-200 p-4 dark:border-surface-700">
+        <div className="mt-4 grid gap-4 rounded-xl border border-surface-200 p-4">
           <Field label="PG Program & University" labelTa="மேற்படிப்பு & பல்கலைக்கழகம்" required>
             <input className="input-base" value={higherStudiesProgram} onChange={(e) => setHigherStudiesProgram(e.target.value)} placeholder="M.E. Computer Science — Anna University" />
           </Field>
@@ -237,12 +276,13 @@ export function CareerTransitionModal({
         </Field>
       </div>
 
+      {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{error}</T></p>}
       <div className="mt-5 flex justify-end gap-2">
         <button className="btn-ghost" onClick={onClose}>
-          Cancel / <span className="ta">ரத்து</span>
+          Cancel <span className="ta">/ ரத்து</span>
         </button>
-        <button className="btn-primary" disabled={!status} onClick={() => void save()}>
-          Save Survey / <span className="ta">சேமி</span>
+        <button className="btn-primary" disabled={!status || saving} onClick={() => void save()}>
+          Save Survey <span className="ta">/ சேமி</span>
         </button>
       </div>
     </Modal>

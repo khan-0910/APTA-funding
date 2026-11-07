@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type {
   Application,
   Beneficiary,
@@ -13,7 +13,7 @@ import {
   fetchAllCloud,
   freshData,
   latency,
-  pushCollections,
+  pushRows,
   readLocal,
   supabase,
   wipeAllCloud,
@@ -44,6 +44,8 @@ export interface StoreShape extends DataState {
   setPartners: (rows: Partner[]) => void
   setProgressReports: (rows: ProgressReport[]) => void
   clearAllData: () => Promise<void>
+  /** Push any unsynced changes now (e.g. before signing out drops the session). */
+  flushPending: () => Promise<void>
   saveApplication: (row: Application) => Promise<void>
   upsertBeneficiary: (row: Beneficiary) => Promise<void>
   logAuthEvent: (entry: Omit<LoginLog, 'id' | 'timestamp' | 'ipAddress' | 'userAgent'>) => Promise<void>
@@ -51,24 +53,21 @@ export interface StoreShape extends DataState {
 
 const StoreContext = createContext<StoreShape | null>(null)
 
-/**
- * Cloud copy wins for rows both sides know about; rows that exist only on this device
- * (e.g. the login-log entry written a moment ago, not yet pushed) are kept so the next
- * push still uploads them.
- */
-function mergeCloud(local: DataState, cloud: DataState): { merged: DataState; hasLocalOnly: boolean } {
-  let hasLocalOnly = false
+const DATA_KEYS = Object.keys(KEYS) as DataKey[]
+
+function emptySynced(): Record<DataKey, Map<string, unknown>> {
+  return Object.fromEntries(DATA_KEYS.map((k) => [k, new Map()])) as Record<DataKey, Map<string, unknown>>
+}
+
+/** Cloud copy wins for rows both sides know; rows only this device has are kept. */
+function mergeCloud(local: DataState, cloud: DataState): DataState {
   const merged = { ...cloud }
-  for (const key of Object.keys(cloud) as DataKey[]) {
-    const cloudRows = cloud[key] as Array<{ id: string }>
-    const ids = new Set(cloudRows.map((r) => r.id))
+  for (const key of DATA_KEYS) {
+    const ids = new Set(cloud[key].map((r) => r.id))
     const localOnly = (local[key] as Array<{ id: string }>).filter((r) => !ids.has(r.id))
-    if (localOnly.length > 0) {
-      hasLocalOnly = true
-      ;(merged as Record<DataKey, unknown>)[key] = [...cloudRows, ...localOnly]
-    }
+    if (localOnly.length > 0) (merged as Record<DataKey, unknown>)[key] = [...cloud[key], ...localOnly]
   }
-  return { merged, hasLocalOnly }
+  return merged
 }
 
 const uid = (prefix: string): string =>
@@ -90,6 +89,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return initial
   })
   const [ready, setReady] = useState(() => !SUPABASE_CONFIGURED)
+  const dataRef = useRef(data)
+  dataRef.current = data
+
+  // Last version of each row the cloud is known to hold. Rows are replaced immutably,
+  // so "dirty" is simply "a different object than the one we last synced".
+  const synced = useRef(emptySynced())
+  const markSynced = (state: DataState) => {
+    for (const key of DATA_KEYS) synced.current[key] = new Map(state[key].map((r) => [r.id, r]))
+  }
+
+  const pushDirty = useCallback(async () => {
+    if (!SUPABASE_CONFIGURED) return
+    const current = dataRef.current
+    await Promise.all(
+      DATA_KEYS.map(async (key) => {
+        const map = synced.current[key]
+        const dirty = (current[key] as Array<{ id: string }>).filter((r) => map.get(r.id) !== r)
+        if (dirty.length === 0) return
+        if (await pushRows(key, dirty)) return dirty.forEach((r) => map.set(r.id, r))
+        // One row RLS rejects must not hold back the others: retry them one by one.
+        if (dirty.length > 1) {
+          for (const r of dirty) if (await pushRows(key, [r])) map.set(r.id, r)
+        }
+      }),
+    )
+  }, [])
 
   // Cloud mode: hydrate from PostgreSQL once at startup.
   useEffect(() => {
@@ -98,7 +123,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     void (async () => {
       const cloud = await fetchAllCloud()
       if (!cancelled) {
-        if (cloud) setData(cloud)
+        if (cloud) {
+          markSynced(cloud)
+          setData(cloud)
+        }
         setReady(true)
       }
     })()
@@ -107,11 +135,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Cloud mode: re-hydrate when the Supabase Auth session changes. Once the anon
-  // policies are dropped (auth-migration-part2.sql), a logged-out visitor can read
-  // nothing, so the data must be fetched again under the new session after sign-in —
-  // and cleared after sign-out so the next person on a shared computer sees nothing.
-  const skipNextPush = useRef(false)
+  // Re-hydrate when the Supabase Auth session changes: under RLS each user only sees
+  // their own rows, so data must be fetched again after sign-in, and cleared after
+  // sign-out so the next person on a shared computer sees nothing.
   useEffect(() => {
     if (!supabase) return
     let cancelled = false
@@ -122,16 +148,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         void (async () => {
           const cloud = await fetchAllCloud()
           if (cancelled || !cloud) return
-          setData((prev) => {
-            if (event === 'SIGNED_OUT') {
-              skipNextPush.current = true
-              return cloud
-            }
-            const { merged, hasLocalOnly } = mergeCloud(prev, cloud)
-            // Nothing new on this device → no need to echo the fresh copy back up.
-            skipNextPush.current = !hasLocalOnly
-            return merged
-          })
+          markSynced(cloud)
+          // Rows created on this device but not yet pushed stay dirty and go up next.
+          setData(event === 'SIGNED_OUT' ? cloud : mergeCloud(dataRef.current, cloud))
         })()
       }, 0)
     })
@@ -141,34 +160,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Mirror to localStorage so local-only mode (and offline resilience) keeps working.
+  // Local-only mode: this device's storage is the database.
   useEffect(() => {
     if (!SUPABASE_CONFIGURED) {
-      writeLocal(KEYS.accounts, data.accounts)
-      writeLocal(KEYS.loginLogs, data.loginLogs)
-      writeLocal(KEYS.applications, data.applications)
-      writeLocal(KEYS.beneficiaries, data.beneficiaries)
-      writeLocal(KEYS.transactions, data.transactions)
-      writeLocal(KEYS.partners, data.partners)
-      writeLocal(KEYS.progressReports, data.progressReports)
+      for (const key of DATA_KEYS) writeLocal(KEYS[key], data[key])
     }
   }, [data])
 
-  // Cloud mode: push every mutation to PostgreSQL shortly after it happens.
+  // Cloud mode: push changed rows shortly after each mutation.
   useEffect(() => {
     if (!SUPABASE_CONFIGURED || !ready) return
-    if (skipNextPush.current) {
-      skipNextPush.current = false
-      return
-    }
-    const timer = window.setTimeout(() => {
-      void pushCollections(
-        ['accounts', 'loginLogs', 'applications', 'beneficiaries', 'transactions', 'partners', 'progressReports'],
-        data,
-      )
-    }, 1200)
+    const timer = window.setTimeout(() => void pushDirty(), 800)
     return () => window.clearTimeout(timer)
-  }, [data, ready])
+  }, [data, ready, pushDirty])
 
   const patch = (key: DataKey, rows: DataState[DataKey]) =>
     setData((prev) => ({ ...prev, [key]: rows }) as DataState)
@@ -185,7 +189,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTransactions: (rows) => patch('transactions', rows),
       setPartners: (rows) => patch('partners', rows),
       setProgressReports: (rows) => patch('progressReports', rows),
+      flushPending: pushDirty,
       clearAllData: async () => {
+        markSynced(freshData())
         setData(freshData())
         for (const k of Object.values(KEYS)) window.localStorage.removeItem(k)
         // Sign out too: the session references an account that no longer exists.
@@ -212,7 +218,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const log: LoginLog = {
           id: uid('log'),
           timestamp: new Date().toISOString(),
-          ipAddress: '127.0.0.1 (client)',
+          ipAddress: '', // browsers can't see their public IP; Supabase logs hold the real one
           userAgent: navigator.userAgent.slice(0, 80),
           ...entry,
         }
@@ -220,7 +226,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await latency()
       },
     }),
-    [data, ready],
+    [data, ready, pushDirty],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

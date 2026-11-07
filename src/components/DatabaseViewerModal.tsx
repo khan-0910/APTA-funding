@@ -67,7 +67,7 @@ export function DatabaseViewerModal({ open, onClose }: { open: boolean; onClose:
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                 tab === key
                   ? 'bg-primary-600 text-white'
-                  : 'bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700'
+                  : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
               }`}
             >
               {en} <span className="ta">/ {ta}</span>
@@ -75,7 +75,7 @@ export function DatabaseViewerModal({ open, onClose }: { open: boolean; onClose:
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <span className="badge bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400">
+          <span className="badge bg-surface-100 text-surface-500">
             {store.syncState === 'cloud' ? 'Supabase connected' : 'Local storage'}
           </span>
           {can('audit') &&
@@ -89,7 +89,7 @@ export function DatabaseViewerModal({ open, onClose }: { open: boolean; onClose:
                       window.location.reload()
                     })
                   }}
-                  className="btn-ghost !px-3 !py-1.5 !text-xs !text-red-600 dark:!text-red-300"
+                  className="btn-ghost !px-3 !py-1.5 !text-xs !text-red-600"
                   disabled={clearing}
                 >
                   <Trash2 className={`h-3.5 w-3.5 ${clearing ? 'animate-pulse' : ''}`} />
@@ -112,22 +112,22 @@ export function DatabaseViewerModal({ open, onClose }: { open: boolean; onClose:
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-surface-200 dark:border-surface-800">
-        <div className="max-h-[55vh] divide-y divide-surface-100 overflow-y-auto dark:divide-surface-800">
+      <div className="overflow-hidden rounded-xl border border-surface-200">
+        <div className="max-h-[55vh] divide-y divide-surface-100 overflow-y-auto">
           {rows.map((r) => (
             <div key={r.id} className="px-4 py-2.5 text-sm">
-              <p className="font-semibold text-surface-800 dark:text-surface-100">{r.primary}</p>
-              <p className="truncate text-xs text-surface-500 dark:text-surface-400">{r.secondary}</p>
-              <p className="text-xs text-surface-400 dark:text-surface-500">{r.meta}</p>
+              <p className="font-semibold text-surface-800">{r.primary}</p>
+              <p className="truncate text-xs text-surface-500">{r.secondary}</p>
+              <p className="text-xs text-surface-400">{r.meta}</p>
             </div>
           ))}
           {rows.length === 0 && (
-            <p className="px-4 py-8 text-center text-sm text-surface-400">No rows / தரவு இல்லை</p>
+            <p className="px-4 py-8 text-center text-sm text-surface-400">No rows<span className="ta">/ தரவு இல்லை</span></p>
           )}
         </div>
       </div>
       <p className="mt-3 flex items-center gap-1.5 text-xs text-surface-400">
-        <ShieldCheck className="h-3.5 w-3.5" /> Read-only view for staff & admin / ஊழியர் மற்றும் நிர்வாகிக்கான பார்வை
+        <ShieldCheck className="h-3.5 w-3.5" /> Read-only view for staff & admin<span className="ta">/ ஊழியர் மற்றும் நிர்வாகிக்கான பார்வை</span>
       </p>
     </Modal>
   )

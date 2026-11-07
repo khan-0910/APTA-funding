@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Building2, Handshake, Mail, Phone, UserPlus } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { useBi } from '@/lib/lang'
 import { useAuth } from '@/lib/auth'
 import { formatDate, formatINR } from '@/lib/format'
 import { EmptyState, Field, KpiCard, Modal, PageHeader } from '@/components/ui'
@@ -14,6 +15,7 @@ const REL_LABEL: Record<PartnerRelationship, { en: string; ta: string }> = {
 }
 
 export function PartnersPage() {
+  const bi = useBi()
   const store = useStore()
   const { can } = useAuth()
   const [addOpen, setAddOpen] = useState(false)
@@ -28,8 +30,8 @@ export function PartnersPage() {
   if (!can('manage_partners')) {
     return (
       <div className="mx-auto max-w-3xl">
-        <p className="glass-card p-8 text-center text-sm text-surface-500">
-          Staff access only / <span className="ta">ஊழியர் அணுகல் மட்டும்</span>
+        <p className="card p-8 text-center text-sm text-surface-500">
+          Staff access only <span className="ta">/ ஊழியர் அணுகல் மட்டும்</span>
         </p>
       </div>
     )
@@ -63,12 +65,12 @@ export function PartnersPage() {
         subtitleTa="நன்கொடையாளர் பட்டியல் மற்றும் தொடர்பு வரலாறு."
         actions={
           <button className="btn-accent" onClick={() => setAddOpen(true)}>
-            <UserPlus className="h-4.5 w-4.5" /> Add Partner / <span className="ta">சேர்</span>
+            <UserPlus className="h-4.5 w-4.5" /> Add Partner <span className="ta">/ சேர்</span>
           </button>
         }
       />
 
-      <div className="stagger grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3">
         <KpiCard icon={<Handshake className="h-5.5 w-5.5" />} label="Total Partners" labelTa="மொத்த கூட்டாளர்கள்" value={String(store.partners.length)} tone="primary" />
         <KpiCard icon={<Building2 className="h-5.5 w-5.5" />} label="Lifetime Contributions" labelTa="மொத்த பங்களிப்பு" value={formatINR(total, { compact: true })} tone="emerald" />
         <KpiCard
@@ -87,20 +89,20 @@ export function PartnersPage() {
           </div>
         )}
         {store.partners.map((p) => (
-          <div key={p.id} className="glass-card card-hover p-5">
+          <div key={p.id} className="card card-hover p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-600/10 text-primary-700 dark:text-primary-300">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-600/10 text-primary-700">
                   <Building2 className="h-5.5 w-5.5" />
                 </div>
                 <div>
-                  <p className="font-bold text-surface-900 dark:text-surface-50">{p.orgName}</p>
-                  <p className="text-xs text-surface-400">{REL_LABEL[p.relationshipStatus].en} / <span className="ta">{REL_LABEL[p.relationshipStatus].ta}</span></p>
+                  <p className="font-bold text-surface-900">{p.orgName}</p>
+                  <p className="text-xs text-surface-400">{REL_LABEL[p.relationshipStatus].en} <span className="ta">/ {REL_LABEL[p.relationshipStatus].ta}</span></p>
                 </div>
               </div>
-              <span className="badge bg-emerald-500/10 font-bold text-emerald-600 dark:text-emerald-300">{formatINR(p.totalContributed, { compact: true })}</span>
+              <span className="badge bg-emerald-500/10 font-bold text-emerald-600">{formatINR(p.totalContributed, { compact: true })}</span>
             </div>
-            <div className="mt-3 space-y-1 text-sm text-surface-600 dark:text-surface-300">
+            <div className="mt-3 space-y-1 text-sm text-surface-600">
               <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-surface-400" /> {p.contactName}</p>
               <p className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-surface-400" /> {p.contactEmail}</p>
             </div>
@@ -123,10 +125,10 @@ export function PartnersPage() {
             </Field>
             <Field label="Relationship" labelTa="உறவு வகை">
               <select className="input-base" value={rel} onChange={(e) => setRel(e.target.value as PartnerRelationship)}>
-                <option value="corporate_csr">Corporate CSR / நிறுவன CSR</option>
-                <option value="ngo">NGO / தொண்டு நிறுவனம்</option>
-                <option value="foundation">Foundation / அறக்கட்டளை</option>
-                <option value="individual_donor">Individual Donor / தனி நன்கொடையாளர்</option>
+                <option value="corporate_csr">{bi("Corporate CSR / நிறுவன CSR")}</option>
+                <option value="ngo">{bi("NGO / தொண்டு நிறுவனம்")}</option>
+                <option value="foundation">{bi("Foundation / அறக்கட்டளை")}</option>
+                <option value="individual_donor">{bi("Individual Donor / தனி நன்கொடையாளர்")}</option>
               </select>
             </Field>
             <Field label="Total Contributed (₹)" labelTa="மொத்த பங்களிப்பு (₹)">
@@ -134,8 +136,8 @@ export function PartnersPage() {
             </Field>
           </div>
           <div className="flex justify-end gap-2">
-            <button className="btn-ghost" onClick={() => setAddOpen(false)}>Cancel / <span className="ta">ரத்து</span></button>
-            <button className="btn-primary" onClick={() => void save()}>Save / <span className="ta">சேமி</span></button>
+            <button className="btn-ghost" onClick={() => setAddOpen(false)}>Cancel <span className="ta">/ ரத்து</span></button>
+            <button className="btn-primary" onClick={() => void save()}>Save <span className="ta">/ சேமி</span></button>
           </div>
         </div>
       </Modal>

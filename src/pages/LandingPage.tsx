@@ -1,60 +1,76 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  ArrowRight,
-  BadgeIndianRupee,
-  ClipboardList,
-  FileText,
-  GraduationCap,
-  HeartHandshake,
-  ShieldCheck,
-  Trophy,
-  Users,
-} from 'lucide-react'
-import { Bi } from '@/components/ui'
+import { ArrowRight, BadgeCheck, ClipboardList, FileText, HandCoins, HeartHandshake, Users } from 'lucide-react'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { SplitText } from 'gsap/SplitText'
+import { LangSwitch, Logo } from '@/components/AppShell'
+import { useAuth } from '@/lib/auth'
 import { useStore } from '@/lib/store'
 import { formatINR } from '@/lib/format'
 import { fetchPublicStats, type PublicStats } from '@/lib/persistence'
-import { useCountUp, useReveal } from '@/lib/motion'
+
+gsap.registerPlugin(ScrollTrigger, SplitText)
 
 const STEPS = [
   {
     icon: FileText,
-    titleEn: 'Apply',
-    titleTa: 'விண்ணப்பிக்கவும்',
-    descEn: 'Fill the bilingual application with your family and income details.',
-    descTa: 'குடும்ப மற்றும் வருமான விவரங்களுடன் இருமொழி விண்ணப்பத்தை நிரப்புங்கள்.',
+    en: 'Apply online',
+    ta: 'இணையத்தில் விண்ணப்பிக்கவும்',
+    body: 'Fill in the bilingual form with your family, income and course details, and attach your documents.',
+    bodyTa: 'குடும்பம், வருமானம், படிப்பு விவரங்களுடன் படிவத்தை நிரப்பி ஆவணங்களை இணைக்கவும்.',
   },
   {
     icon: ClipboardList,
-    titleEn: 'Review & Verification',
-    titleTa: 'ஆய்வு & சரிபார்ப்பு',
-    descEn: 'Staff verify documents and conduct a home visit within 2 weeks.',
-    descTa: 'ஆவணங்கள் சரிபார்க்கப்பட்டு, 2 வாரங்களில் வீட்டு ஆய்வு மேற்கொள்ளப்படும்.',
+    en: 'Verification',
+    ta: 'சரிபார்ப்பு',
+    body: 'Our team checks your documents and visits your home, usually within two weeks.',
+    bodyTa: 'ஆவணங்கள் சரிபார்க்கப்பட்டு, பொதுவாக இரண்டு வாரங்களில் வீட்டு ஆய்வு நடைபெறும்.',
+  },
+  {
+    icon: HandCoins,
+    en: 'Funding',
+    ta: 'நிதியுதவி',
+    body: 'Once approved, the sanctioned amount is disbursed from Zakkath donations and recorded in our ledger.',
+    bodyTa: 'அனுமதி கிடைத்ததும், ஒதுக்கப்பட்ட தொகை ஜகாத் நன்கொடையிலிருந்து வழங்கப்பட்டு கணக்கில் பதிவு செய்யப்படும்.',
   },
   {
     icon: HeartHandshake,
-    titleEn: 'Funding & Mentorship',
-    titleTa: 'நிதி & வழிகாட்டல்',
-    descEn: 'Zakkath grant disbursed, then mentorship till graduation & placement.',
-    descTa: 'ஜகாத் நிதி வழங்கப்பட்டு, பட்டம் மற்றும் வேலைவாய்ப்பு வரை வழிகாட்டல்.',
+    en: 'Mentorship to placement',
+    ta: 'வேலைவாய்ப்பு வரை வழிகாட்டல்',
+    body: 'Semester progress check-ins through graduation, then help with your first job or further studies.',
+    bodyTa: 'பட்டம் வரை ஒவ்வொரு பருவமும் தொடர்பு, பின்னர் முதல் வேலை அல்லது மேற்படிப்புக்கு உதவி.',
   },
 ]
 
-function StatValue({ value, format }: { value: number; format: (n: number) => string }) {
-  const animated = useCountUp(value)
-  return <>{format(animated)}</>
-}
+const PRINCIPLES = [
+  {
+    icon: BadgeCheck,
+    en: 'Every case is verified',
+    body: 'Applications are checked against documents and a home visit before any amount is sanctioned.',
+  },
+  {
+    icon: HandCoins,
+    en: 'Every rupee is accounted for',
+    body: 'Donations received and funds disbursed are entered in one ledger and reconciled against the bank.',
+  },
+  {
+    icon: Users,
+    en: 'Support beyond fees',
+    body: 'Students share progress each semester and get guidance until they are working or studying further.',
+  },
+]
 
 export function LandingPage() {
+  const { user } = useAuth()
   const { beneficiaries, transactions, partners } = useStore()
   const [publicStats, setPublicStats] = useState<PublicStats | null>(null)
-  const revealRef = useReveal<HTMLDivElement>()
+  const root = useRef<HTMLDivElement>(null)
 
   const storeHasData = beneficiaries.length + transactions.length + partners.length > 0
 
-  // Logged-out visitors can't read the tables once the database is locked down, so the
-  // homepage asks the aggregate-only RPC instead. Signed-in users use the live store.
+  // Logged-out visitors can't read the tables under RLS; the homepage uses the
+  // aggregate-only RPC instead. Staff see the live store.
   useEffect(() => {
     if (storeHasData) return
     let cancelled = false
@@ -66,168 +82,345 @@ export function LandingPage() {
     }
   }, [storeHasData])
 
-  const local = {
-    studentsFunded: beneficiaries.length,
-    totalFunding: beneficiaries.reduce((s, b) => s + b.fundingReceived, 0),
-    totalInflow: transactions.filter((t) => t.direction === 'inflow').reduce((s, t) => s + t.amount, 0),
-    graduated: beneficiaries.filter((b) => b.status === 'completed' || b.careerSurvey?.status === 'already_employed').length,
-    partners: partners.length,
-  }
   const stats =
     !storeHasData && publicStats
       ? {
-          studentsFunded: publicStats.studentsFunded,
-          totalFunding: publicStats.amountDisbursed,
-          totalInflow: publicStats.inflowTotal,
+          students: publicStats.studentsFunded,
+          disbursed: publicStats.amountDisbursed || publicStats.inflowTotal,
           graduated: publicStats.graduated,
           partners: publicStats.partners,
         }
-      : local
-  const gradRate = stats.studentsFunded > 0 ? Math.round((stats.graduated / stats.studentsFunded) * 100) : 0
+      : {
+          students: beneficiaries.length,
+          disbursed:
+            beneficiaries.reduce((s, b) => s + b.fundingReceived, 0) ||
+            transactions.filter((t) => t.direction === 'inflow').reduce((s, t) => s + t.amount, 0),
+          graduated: beneficiaries.filter((b) => b.status === 'completed' || b.careerSurvey?.status === 'already_employed').length,
+          partners: partners.length,
+        }
+  // A brand-new fund showing rows of zeros helps nobody; the band appears once there's a record.
+  const showStats = stats.students > 0
 
-  const STATS = [
-    { icon: GraduationCap, value: stats.studentsFunded, fmt: (n: number) => String(Math.round(n)), en: 'Students Funded', ta: 'மாணவர்கள் நிதியுதவி' },
-    {
-      icon: BadgeIndianRupee,
-      value: stats.totalFunding || stats.totalInflow,
-      fmt: (n: number) => formatINR(Math.round(n), { compact: true }),
-      en: 'Distributed',
-      ta: 'வழங்கப்பட்டது',
-    },
-    { icon: Trophy, value: gradRate, fmt: (n: number) => `${Math.round(n)}%`, en: 'Graduation Rate', ta: 'பட்டப்படிப்பு விகிதம்' },
-    { icon: Users, value: stats.partners, fmt: (n: number) => String(Math.round(n)), en: 'Partners', ta: 'கூட்டாளர்கள்' },
+  useLayoutEffect(() => {
+    const ctx = gsap.context(() => {
+      const mm = gsap.matchMedia()
+
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        // Hero: headline words rise out of a mask. autoSplit re-splits once web fonts load
+        // (or the layout changes), so line breaks always match the final typeface.
+        SplitText.create('[data-hero-title]', {
+          type: 'words',
+          mask: 'words',
+          autoSplit: true,
+          onSplit: (self) => gsap.from(self.words, { yPercent: 110, duration: 0.9, ease: 'power3.out', stagger: 0.06 }),
+        })
+        gsap
+          .timeline({ defaults: { ease: 'power3.out' }, delay: 0.35 })
+          .from('[data-hero-fade]', { autoAlpha: 0, y: 16, duration: 0.7, stagger: 0.08 })
+          .from('[data-journey-step]', { autoAlpha: 0, x: 18, duration: 0.6, stagger: 0.1 }, '-=0.5')
+          .from('[data-journey-rail]', { scaleY: 0, transformOrigin: 'top', duration: 1, ease: 'power2.inOut' }, '<')
+
+        gsap.to('[data-hero-bg]', {
+          yPercent: 18,
+          ease: 'none',
+          scrollTrigger: { trigger: '[data-hero]', start: 'top top', end: 'bottom top', scrub: true },
+        })
+
+        // Mission statement: words brighten as the paragraph scrolls through.
+        SplitText.create('[data-mission]', {
+          type: 'words',
+          autoSplit: true,
+          onSplit: (self) =>
+            gsap.fromTo(
+              self.words,
+              { opacity: 0.16 },
+              {
+                opacity: 1,
+                ease: 'none',
+                stagger: 0.05,
+                scrollTrigger: { trigger: '[data-mission]', start: 'top 80%', end: 'bottom 45%', scrub: true },
+              },
+            ),
+        })
+
+        gsap.utils.toArray<HTMLElement>('[data-reveal]').forEach((el) => {
+          gsap.from(el.children, {
+            autoAlpha: 0,
+            y: 28,
+            duration: 0.8,
+            ease: 'power3.out',
+            stagger: 0.1,
+            scrollTrigger: { trigger: el, start: 'top 82%', once: true },
+          })
+        })
+
+      })
+
+      // "How it works": pinned with a filling progress rail on wide screens.
+      mm.add('(min-width: 1024px) and (prefers-reduced-motion: no-preference)', () => {
+        const steps = gsap.utils.toArray<HTMLElement>('[data-step]')
+        gsap.set(steps, { opacity: 0.35 })
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: '[data-process]',
+            start: 'top top+=80',
+            end: () => `+=${steps.length * 260}`,
+            pin: true,
+            scrub: 0.6,
+          },
+        })
+        tl.fromTo('[data-process-rail]', { scaleY: 0 }, { scaleY: 1, ease: 'none', duration: steps.length }, 0)
+        steps.forEach((step, i) => {
+          tl.to(step, { opacity: 1, duration: 0.4 }, i)
+          tl.to(
+            step.querySelector('[data-step-dot]'),
+            { backgroundColor: '#2f68cc', color: '#fff', borderColor: '#2f68cc', duration: 0.3 },
+            i,
+          )
+        })
+      })
+
+      // Count-ups; with reduced motion the final numbers are simply shown.
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        gsap.utils.toArray<HTMLElement>('[data-count]').forEach((el) => {
+          const target = Number(el.dataset.count)
+          const render = (n: number) => {
+            el.textContent = el.dataset.format === 'inr' ? formatINR(Math.round(n), { compact: true }) : String(Math.round(n))
+          }
+          const counter = { n: 0 }
+          render(0)
+          gsap.to(counter, {
+            n: target,
+            duration: 1.6,
+            ease: 'power2.out',
+            onUpdate: () => render(counter.n),
+            scrollTrigger: { trigger: el, start: 'top 90%', once: true },
+          })
+        })
+      }
+    }, root)
+    return () => ctx.revert()
+  }, [showStats, stats.students, stats.disbursed, stats.graduated, stats.partners])
+
+  const statItems = [
+    { value: stats.students, format: 'n', en: 'Students funded', ta: 'நிதியுதவி பெற்ற மாணவர்கள்' },
+    { value: stats.disbursed, format: 'inr', en: 'Disbursed', ta: 'வழங்கப்பட்ட நிதி' },
+    { value: stats.graduated, format: 'n', en: 'Graduated or employed', ta: 'பட்டம் / வேலை' },
+    { value: stats.partners, format: 'n', en: 'Partner organisations', ta: 'கூட்டாளர் அமைப்புகள்' },
   ]
+  const applyTo = user ? '/applications/new' : '/register'
 
   return (
-    <div ref={revealRef} className="mx-auto max-w-6xl">
+    <div ref={root} className="bg-white text-surface-800">
+      <header className="absolute inset-x-0 top-0 z-20">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5">
+          <Logo />
+          <nav className="hidden items-center gap-7 text-sm text-surface-600 md:flex" aria-label="Homepage">
+            <a href="#how" className="hover:text-surface-900">How it works</a>
+            <a href="#principles" className="hover:text-surface-900">Our principles</a>
+          </nav>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:block">
+              <LangSwitch />
+            </div>
+            {user ? (
+              <Link to="/applications" className="btn-primary !py-1.5">
+                Dashboard
+              </Link>
+            ) : (
+              <Link to="/login" className="btn-ghost !py-1.5">
+                Sign in
+              </Link>
+            )}
+          </div>
+        </div>
+      </header>
+
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-800 via-primary-900 to-primary-950 p-8 text-white shadow-xl shadow-primary-950/25 ring-1 ring-white/10 sm:p-12">
-        <div className="anim-drift pointer-events-none absolute -right-28 -top-28 h-80 w-80 rounded-full bg-amber-400/15 blur-3xl" />
-        <div className="anim-drift-slow pointer-events-none absolute -bottom-32 -left-24 h-80 w-80 rounded-full bg-primary-400/20 blur-3xl" />
-        {/* fine academic grid texture */}
+      <section data-hero className="relative overflow-hidden pb-20 pt-32 sm:pt-40">
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,.9) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.9) 1px, transparent 1px)',
-            backgroundSize: '44px 44px',
-            maskImage: 'radial-gradient(ellipse at 70% 30%, black, transparent 70%)',
-            WebkitMaskImage: 'radial-gradient(ellipse at 70% 30%, black, transparent 70%)',
-          }}
+          data-hero-bg
           aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 -top-40 h-[42rem] bg-[radial-gradient(60rem_30rem_at_70%_0%,var(--color-primary-100),transparent_70%)]"
         />
-        <div className="relative stagger">
-          <span className="eyebrow !text-amber-300">
-            <HeartHandshake className="h-3.5 w-3.5" /> APTA · All Praise To Allah
-          </span>
-          <h1 className="mt-4 max-w-3xl text-3xl font-bold leading-[1.12] tracking-tight sm:text-5xl">
-            Empowering Dreams Through Education
-            <span className="ta mt-3 block text-lg font-semibold leading-snug text-amber-200 sm:text-2xl">
-              கல்வியின் மூலம் எதிர்காலத்தை உருவாக்குவோம்
-            </span>
-          </h1>
-          <span className="gold-rule anim-draw mt-6 !w-24" aria-hidden="true" />
-          <p className="mt-6 max-w-2xl text-base leading-relaxed text-white/80">
-            Every student deserves the chance to learn. With community donations, APTA funds four-year college degrees for students in Salem, Tamil Nadu — and stands beside each one from the first day of class to the first day of work.
-            <span className="ta mt-2 block text-sm leading-relaxed text-white/65">
-              ஒவ்வொரு மாணவருக்கும் கற்க வாய்ப்பு உண்டு. சமூக நன்கொடைகள் மூலம், சேலம் மாவட்டத்தின் மாணவர்களுக்கு 4 ஆண்டு கல்லூரிக் கல்விக்கு நிதியுதவி செய்கிறோம் — வகுப்பறையின் முதல் நாள் முதல் பணியின் முதல் நாள் வரை ஒவ்வொரு மாணவருடனும் இருக்கிறோம்.
-            </span>
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link to="/applications/new" className="btn-accent group !px-6 !py-3 text-base">
-              Apply for Funding <span className="ta font-normal">/ விண்ணப்பிக்க</span>
-              <ArrowRight className="h-4.5 w-4.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-            </Link>
-            <Link
-              to="/login"
-              className="btn-ghost !border-white/25 !bg-white/5 !px-6 !py-3 text-base !text-white hover:!border-amber-300/60 hover:!bg-white/10"
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,var(--color-surface-200)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-surface-200)_1px,transparent_1px)] bg-[size:72px_72px] opacity-40 [mask-image:radial-gradient(ellipse_at_top,black_30%,transparent_75%)]"
+        />
+        <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-5 lg:grid-cols-[1.15fr_0.85fr]">
+          <div>
+            <p data-hero-fade className="text-sm font-medium text-primary-700">
+              Zakkath education fund · Salem, Tamil Nadu
+            </p>
+            <h1
+              data-hero-title
+              className="font-display mt-4 text-[2.6rem] font-semibold leading-[1.05] tracking-tight text-surface-900 sm:text-6xl"
             >
-              Staff Portal / <span className="ta">ஊழியர் நுழைவு</span>
-            </Link>
+              A college degree shouldn’t depend on family income.
+            </h1>
+            <p data-hero-fade className="ta mt-4 text-lg text-primary-800">
+              குடும்ப வருமானம் கல்விக்கு தடையாக இருக்கக்கூடாது.
+            </p>
+            <p data-hero-fade className="mt-5 max-w-xl text-lg leading-relaxed text-surface-600">
+              APTA Empowers funds the education of students from low-income families in Salem through community Zakkath
+              — and stays with each student from the first day of class to the first day of work.
+            </p>
+            <div data-hero-fade className="mt-8 flex flex-wrap items-center gap-3">
+              <Link to={applyTo} className="btn-accent group !px-5 !py-2.5 text-[15px]">
+                Apply for funding
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+              <a href="#how" className="btn-ghost !px-5 !py-2.5 text-[15px]">
+                See how it works
+              </a>
+            </div>
+          </div>
+
+          <div data-hero-fade className="card relative p-6 shadow-[0_24px_60px_-30px_rgba(31,61,108,0.35)]">
+            <p className="text-xs font-medium uppercase tracking-wider text-surface-500">Your application, step by step</p>
+            <ol className="relative mt-5 space-y-5">
+              <span data-journey-rail aria-hidden="true" className="absolute bottom-3 left-[15px] top-3 w-px bg-primary-200" />
+              {STEPS.map((s, i) => (
+                <li key={s.en} data-journey-step className="relative flex gap-4">
+                  <span
+                    className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular ${
+                      i === 0 ? 'border-primary-600 bg-primary-600 text-white' : 'border-surface-300 bg-white text-surface-500'
+                    }`}
+                  >
+                    {i + 1}
+                  </span>
+                  <div className="pt-1">
+                    <p className="text-sm font-medium text-surface-900">{s.en}</p>
+                    <p className="ta text-xs text-surface-500">{s.ta}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
         </div>
       </section>
 
-      {/* Stats */}
-      <section className="relative z-10 mx-auto -mt-8 grid max-w-5xl grid-cols-2 gap-3 px-2 sm:gap-4 lg:grid-cols-4">
-        {STATS.map((s, i) => (
-          <div
-            key={s.en}
-            className="reveal glass-card card-hover flex items-center gap-3 p-4 sm:p-5"
-            style={{ '--i': i } as CSSProperties}
-          >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-amber-300 ring-1 ring-amber-400/40 dark:bg-primary-700">
-              <s.icon className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="font-display text-2xl font-bold tabular-nums text-primary-900 dark:text-surface-50">
-                <StatValue value={s.value} format={s.fmt} />
-              </p>
-              <p className="text-xs font-medium text-surface-500 dark:text-surface-400">
-                {s.en} <span className="ta">/ {s.ta}</span>
-              </p>
-            </div>
-          </div>
-        ))}
+      {showStats && (
+        <section className="border-y border-surface-200 bg-surface-50">
+          <dl className="mx-auto grid max-w-6xl grid-cols-2 divide-surface-200 px-5 lg:grid-cols-4 lg:divide-x">
+            {statItems.map((s) => (
+              <div key={s.en} className="px-2 py-8 lg:px-8">
+                <dt className="text-sm text-surface-500">
+                  {s.en}
+                  <span className="ta block text-xs">{s.ta}</span>
+                </dt>
+                <dd
+                  data-count={s.value}
+                  data-format={s.format}
+                  className="font-display mt-2 text-4xl font-semibold tracking-tight text-surface-900 tabular"
+                >
+                  {s.format === 'inr' ? formatINR(s.value, { compact: true }) : s.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+
+      <section className="mx-auto max-w-4xl px-5 py-24 sm:py-32">
+        <p data-mission className="font-display text-2xl leading-snug text-surface-900 sm:text-[2rem]">
+          Zakkath is meant to lift a family for good. We put it where it lasts longest — in a student’s education — and
+          keep checking in every semester until they graduate and find their footing.
+        </p>
+        <p className="ta mt-6 text-base leading-relaxed text-surface-600">
+          ஜகாத் ஒரு குடும்பத்தை நிரந்தரமாக உயர்த்த வேண்டும். அதனால் அதை மாணவரின் கல்வியில் முதலீடு செய்கிறோம் — பட்டம்
+          பெறும் வரை ஒவ்வொரு பருவமும் உடன் இருக்கிறோம்.
+        </p>
       </section>
 
-      {/* How it works */}
-      <section className="mt-14">
-        <div className="reveal flex flex-col items-center text-center">
-          <span className="eyebrow">Process / <span className="ta tracking-normal">செயல்முறை</span></span>
-          <h2 className="section-title mt-2 !text-2xl">
-            How It Works <span className="ta text-lg text-amber-600 dark:text-amber-300">/ எப்படி இயங்குகிறது</span>
-          </h2>
-          <span className="gold-rule mt-3" aria-hidden="true" />
-        </div>
-        <div className="relative mt-8 grid gap-4 md:grid-cols-3">
-          {/* connector line behind the medallions */}
-          <div
-            className="pointer-events-none absolute left-[16.6%] right-[16.6%] top-[2.65rem] hidden h-px bg-gradient-to-r from-amber-400/0 via-amber-400/60 to-amber-400/0 md:block"
-            aria-hidden="true"
-          />
-          {STEPS.map((s, i) => (
-            <div
-              key={s.titleEn}
-              className="reveal glass-card card-hover relative p-6 text-center"
-              style={{ '--i': i } as CSSProperties}
-            >
-              <div className="relative mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary-800 text-amber-300 shadow-md shadow-primary-900/20 ring-4 ring-white dark:bg-primary-700 dark:ring-surface-900">
-                <s.icon className="h-5 w-5" />
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-[11px] font-bold text-primary-950">
+      <section id="how" className="scroll-mt-20 bg-surface-50 py-24">
+        <div data-process className="mx-auto grid max-w-6xl gap-12 px-5 lg:grid-cols-[0.9fr_1.1fr]">
+          <div>
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-surface-900 sm:text-4xl">How it works</h2>
+            <p className="ta mt-1 text-primary-800">எப்படி இயங்குகிறது</p>
+            <p className="mt-4 max-w-sm leading-relaxed text-surface-600">
+              One application, one team that knows your case, and a clear decision you can follow in your account.
+            </p>
+            <Link to={applyTo} className="btn-primary mt-8">
+              Start an application <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <ol className="relative space-y-4">
+            <span aria-hidden="true" className="absolute bottom-6 left-[35px] top-6 hidden w-px bg-surface-200 lg:block" />
+            <span
+              data-process-rail
+              aria-hidden="true"
+              className="absolute bottom-6 left-[35px] top-6 hidden w-px origin-top bg-primary-500 lg:block"
+            />
+            {STEPS.map((s, i) => (
+              <li key={s.en} data-step className="card relative flex gap-5 p-5">
+                <span
+                  data-step-dot
+                  className="relative z-10 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border border-surface-300 bg-white text-xs font-semibold text-surface-600 tabular"
+                >
                   {i + 1}
                 </span>
-              </div>
-              <h3 className="mt-4 text-lg font-bold text-primary-900 dark:text-surface-50">
-                {s.titleEn} <span className="ta block text-sm font-semibold text-amber-600 dark:text-amber-300">{s.titleTa}</span>
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-surface-600 dark:text-surface-300">{s.descEn}</p>
-              <p className="ta mt-1 text-xs leading-relaxed text-surface-500 dark:text-surface-400">{s.descTa}</p>
+                <div>
+                  <h3 className="flex items-center gap-2 font-medium text-surface-900">
+                    <s.icon className="h-4 w-4 text-primary-600" /> {s.en}
+                  </h3>
+                  <p className="ta text-xs text-surface-500">{s.ta}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-surface-600">{s.body}</p>
+                  <p className="ta mt-1 text-xs leading-relaxed text-surface-500">{s.bodyTa}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section id="principles" className="mx-auto max-w-6xl scroll-mt-20 px-5 py-24">
+        <div data-reveal className="max-w-2xl">
+          <h2 className="font-display text-3xl font-semibold tracking-tight text-surface-900 sm:text-4xl">
+            Accountable to every donor.
+          </h2>
+          <p className="mt-3 leading-relaxed text-surface-600">
+            Zakkath is given in trust that it reaches the right hands. These are the rules we hold ourselves to.
+          </p>
+        </div>
+        <div data-reveal className="mt-12 grid gap-px overflow-hidden rounded-xl border border-surface-200 bg-surface-200 md:grid-cols-3">
+          {PRINCIPLES.map((p) => (
+            <div key={p.en} className="bg-white p-7">
+              <p.icon className="h-5 w-5 text-primary-600" />
+              <h3 className="mt-4 font-medium text-surface-900">{p.en}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-surface-600">{p.body}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* CTA banner */}
-      <section className="reveal relative mt-14 flex flex-wrap items-center justify-between gap-5 overflow-hidden rounded-2xl bg-gradient-to-r from-primary-900 to-primary-950 p-7 text-white ring-1 ring-amber-400/25 sm:p-8">
-        <div className="pointer-events-none absolute -right-16 top-1/2 h-48 w-48 -translate-y-1/2 rounded-full bg-amber-400/10 blur-2xl" />
-        <div className="relative flex items-start gap-4">
-          <div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400/15 text-amber-300 ring-1 ring-amber-400/40 sm:flex">
-            <ShieldCheck className="h-5.5 w-5.5" />
-          </div>
+      <section className="px-5 pb-24">
+        <div
+          data-reveal
+          className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 rounded-2xl bg-primary-600 px-8 py-12 text-white sm:px-12 md:flex-row md:items-center"
+        >
           <div>
-            <h3 className="text-xl font-bold">
-              <Bi en="Ready to change a life?" ta="ஒரு வாழ்க்கையை மாற்ற தயாரா?" className="text-white" taClassName="ta text-amber-200" />
-            </h3>
-            <p className="mt-1 text-sm text-white/75">
-              100% of Zakkath donations reach verified students. <span className="ta">ஜகாத் நிதி முழுவதும் சரிபார்க்கப்பட்ட மாணவர்களுக்கே.</span>
+            <h2 className="font-display text-3xl font-semibold tracking-tight">Applications are open.</h2>
+            <p className="ta mt-1 text-primary-100">விண்ணப்பங்கள் திறந்துள்ளன.</p>
+            <p className="mt-3 max-w-lg text-primary-100">
+              Keep your Aadhaar, income certificate and latest fee receipt handy before you start.
             </p>
           </div>
+          <Link to={applyTo} className="btn-accent !px-6 !py-3 text-[15px]">
+            Apply now <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
-        <Link to="/register" className="btn-accent relative !px-6 !py-3">
-          Join as Donor / <span className="ta font-normal">நன்கொடையாளராகுங்கள்</span>
-        </Link>
       </section>
+
+      <footer className="border-t border-surface-200">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-5 py-8 text-sm text-surface-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>APTA Empowers · All Praise To Allah · Salem, Tamil Nadu</p>
+          <div className="flex gap-5">
+            <Link to="/login" className="hover:text-surface-800">Staff sign in</Link>
+            <Link to="/register" className="hover:text-surface-800">Create account</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

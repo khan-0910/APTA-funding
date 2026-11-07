@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { T } from '@/lib/lang'
 import { ArrowLeft, CheckCircle2, Printer, XCircle } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { useAuth } from '@/lib/auth'
 import { formatDate, formatINR, todayISO } from '@/lib/format'
 import { Field, PageHeader, StatusBadge, Modal } from '@/components/ui'
-import type { Application } from '@/types'
+import { documentUrl } from '@/lib/persistence'
+import type { Application, AttachedDocument, Beneficiary } from '@/types'
 
 type Tab = 'all' | 'basic' | 'family' | 'income' | 'need' | 'documents' | 'declaration' | 'office'
 
@@ -30,15 +32,17 @@ export function ApplicationDetailPage() {
   const [reviewNotes, setReviewNotes] = useState('')
   const [sanctioned, setSanctioned] = useState('')
 
-  const app = useMemo(() => store.applications.find((a) => a.id === id) ?? null, [store.applications, id])
+  const found = useMemo(() => store.applications.find((a) => a.id === id) ?? null, [store.applications, id])
+  // Students may only open their own applications (RLS enforces the same in the cloud).
+  const app = found && (can('review') || found.studentId === user?.id) ? found : null
 
   if (!app) {
     return (
       <div className="mx-auto max-w-3xl">
-        <p className="glass-card p-8 text-center text-sm text-surface-500">Application not found / விண்ணப்பம் கிடைக்கவில்லை</p>
+        <p className="card p-8 text-center text-sm text-surface-500">Application not found<span className="ta">/ விண்ணப்பம் கிடைக்கவில்லை</span></p>
         <div className="mt-4 text-center">
           <Link to="/applications" className="btn-ghost">
-            <ArrowLeft className="h-4 w-4" /> Back / திரும்பு
+            <ArrowLeft className="h-4 w-4" /> Back<span className="ta">/ திரும்பு</span>
           </Link>
         </div>
       </div>
@@ -60,27 +64,33 @@ export function ApplicationDetailPage() {
         verifiedBy: user?.name ?? 'Staff',
         verificationDate: todayISO(),
         fieldNotes: reviewNotes || office?.fieldNotes || '',
-        sanctionedAmount: approved ? Number(sanctioned) || app.fundingRequested : 0,
+        sanctionedAmount: approved ? (Number(sanctioned) > 0 ? Number(sanctioned) : app.fundingRequested) : 0,
         approvedBy: user?.name ?? 'Staff',
       },
     }
     await store.saveApplication(next)
 
     if (approved) {
-      const existing = store.beneficiaries.find((b) => b.name === next.studentName)
-      const ben = existing ?? {
+      const sanctionedAmount = next.officeUseOnly?.sanctionedAmount ?? next.fundingRequested
+      const existing =
+        store.beneficiaries.find((b) => b.studentId === next.studentId) ??
+        // Records created before the student link existed: adopt by name once.
+        store.beneficiaries.find((b) => !b.studentId && b.name === next.studentName)
+      const ben: Beneficiary = existing
+        ? { ...existing, studentId: next.studentId, fundingReceived: existing.fundingReceived + sanctionedAmount }
+        : {
         id: `ben-${Date.now().toString(36)}`,
+        studentId: next.studentId,
         name: next.studentName,
         category: next.category,
         educationLevel: next.educationLevel,
-        fundingReceived: 0,
         program: next.program,
         status: 'active' as const,
         enrolledSince: new Date().toISOString(),
         expectedGraduation: next.familyProfile?.expectedGraduationYear ?? '—',
         currentGpa: 0,
+        fundingReceived: sanctionedAmount,
       }
-      ben.fundingReceived = next.officeUseOnly?.sanctionedAmount ?? next.fundingRequested
       await store.upsertBeneficiary(ben)
     }
     setDecide(null)
@@ -93,16 +103,16 @@ export function ApplicationDetailPage() {
     <div className="mx-auto max-w-5xl">
       <div className="mb-4 flex items-center justify-between gap-3 no-print">
         <button className="btn-ghost !px-3 !py-1.5 !text-xs" onClick={() => navigate('/applications')}>
-          <ArrowLeft className="h-4 w-4" /> Back / <span className="ta">திரும்பு</span>
+          <ArrowLeft className="h-4 w-4" /> Back <span className="ta">/ திரும்பு</span>
         </button>
         <button className="btn-primary !px-3 !py-1.5 !text-xs" onClick={() => window.print()}>
-          <Printer className="h-4 w-4" /> Print Application / <span className="ta">அச்சிடு</span>
+          <Printer className="h-4 w-4" /> Print Application <span className="ta">/ அச்சிடு</span>
         </button>
       </div>
 
       <div className="print-only mb-6">
         <p className="text-xl font-bold">APTA Empowers — Application {app.id}</p>
-        <p className="ta text-sm">கல்வி உதவி விண்ணப்பம் — அமெரிக்க முற்போக்கு தமிழ் சங்கம்</p>
+        <p className="ta text-sm">கல்வி உதவி விண்ணப்பம் — APTA Empowers, சேலம்</p>
       </div>
 
       <PageHeader
@@ -121,7 +131,7 @@ export function ApplicationDetailPage() {
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
               tab === key
                 ? 'bg-primary-600 text-white'
-                : 'bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700'
+                : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
             }`}
           >
             {en} <span className="ta">/ {ta}</span>
@@ -186,14 +196,14 @@ export function ApplicationDetailPage() {
           <Section title="Purpose of Assistance & Statement of Need" titleTa="உதவி நோக்கம் & தேவை விளக்கம்">
             <div className="space-y-3 text-sm">
               <p>
-                <span className="font-semibold text-surface-700 dark:text-surface-200">Category / <span className="ta">வகை:</span></span>{' '}
+                <span className="font-semibold text-surface-700">Category <span className="ta">/ வகை:</span></span>{' '}
                 <span className="capitalize">{String(purpose.category ?? app.category).replace('_', ' ')}</span> — {str(purpose.subCategory)}
               </p>
               <p>
-                <span className="font-semibold text-surface-700 dark:text-surface-200">Amount / <span className="ta">தொகை:</span></span>{' '}
-                <span className="text-lg font-black text-primary-700 dark:text-primary-300">{formatINR(app.fundingRequested)}</span>
+                <span className="font-semibold text-surface-700">Amount <span className="ta">/ தொகை:</span></span>{' '}
+                <span className="text-lg font-semibold text-primary-700">{formatINR(app.fundingRequested)}</span>
               </p>
-              <p className="whitespace-pre-line rounded-xl bg-surface-50 p-4 leading-relaxed text-surface-700 dark:bg-surface-800/60 dark:text-surface-200">
+              <p className="whitespace-pre-line rounded-xl bg-surface-50 p-4 leading-relaxed text-surface-700">
                 {app.statementOfNeed || str(purpose.statement)}
               </p>
             </div>
@@ -203,48 +213,39 @@ export function ApplicationDetailPage() {
         {show('documents') && (
           <Section title="Documents" titleTa="ஆவணங்கள்">
             {app.supportingDocuments?.attachments?.length ? (
-              <ul className="divide-y divide-surface-100 dark:divide-surface-800">
+              <ul className="divide-y divide-surface-100">
                 {app.supportingDocuments.attachments.map((d) => (
                   <li key={d.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                     <div>
-                      <p className="font-semibold text-surface-800 dark:text-surface-100">{d.name}</p>
+                      <p className="font-semibold text-surface-800">{d.name}</p>
                       <p className="text-xs text-surface-400">{d.category} · {(d.size / 1024).toFixed(0)} KB · {formatDate(d.uploadedAt)}</p>
                     </div>
-                    <a
-                      className="btn-ghost !px-2.5 !py-1 !text-xs"
-                      href={d.dataUrl ?? '#'}
-                      download={d.name}
-                      onClick={(e) => {
-                        if (!d.dataUrl) e.preventDefault()
-                      }}
-                    >
-                      Download / <span className="ta">பதிவிறக்கு</span>
-                    </a>
+                    <DocumentLink doc={d} />
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-surface-400">No documents attached / ஆவணங்கள் இல்லை</p>
+              <p className="text-sm text-surface-400">No documents attached<span className="ta">/ ஆவணங்கள் இல்லை</span></p>
             )}
           </Section>
         )}
 
         {show('declaration') && (
           <Section title="Zakkath Declaration" titleTa="ஜகாத் உறுதிமொழி">
-            <div className="rounded-xl border border-amber-300/70 bg-amber-50/80 p-4 text-sm dark:border-amber-500/30 dark:bg-amber-500/10">
-              <p className="font-semibold text-surface-800 dark:text-surface-100">
+            <div className="rounded-xl border border-amber-300/70 bg-amber-50/80 p-4 text-sm">
+              <p className="font-semibold text-surface-800">
                 I here by under take that the information provided above is true and that the student is eligible for Zakkath assistance.
               </p>
-              <p className="ta mt-1 text-surface-600 dark:text-surface-300">
+              <p className="ta mt-1 text-surface-600">
                 மேற்கண்ட தகவல்கள் உண்மையானவை என்றும் மாணவர் ஜகாத் உதவியை பெறுவதற்கு தகுதியுடையவர் என்றும் உறுதியளிக்கிறேன்.
               </p>
-              <div className="mt-3 grid gap-2 text-xs text-surface-600 dark:text-surface-300 sm:grid-cols-3">
-                <p>Place / <span className="ta">இடம்</span>: <b>{str(app.declaration?.place)}</b></p>
-                <p>Date / <span className="ta">தேதி</span>: <b>{formatDate(app.declaration?.date ?? null)}</b></p>
-                <p>Signature / <span className="ta">கையொப்பம்</span>: <b>{str(app.declaration?.signatureOrName)}</b></p>
+              <div className="mt-3 grid gap-2 text-xs text-surface-600 sm:grid-cols-3">
+                <p>Place <span className="ta">/ இடம்</span>: <b>{str(app.declaration?.place)}</b></p>
+                <p>Date <span className="ta">/ தேதி</span>: <b>{formatDate(app.declaration?.date ?? null)}</b></p>
+                <p>Signature <span className="ta">/ கையொப்பம்</span>: <b>{str(app.declaration?.signatureOrName)}</b></p>
               </div>
-              <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="h-4 w-4" /> Undertaking confirmed / <span className="ta">உறுதிமொழி உறுதிசெய்யப்பட்டது</span>
+              <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                <CheckCircle2 className="h-4 w-4" /> Undertaking confirmed <span className="ta">/ உறுதிமொழி உறுதிசெய்யப்பட்டது</span>
               </p>
             </div>
           </Section>
@@ -255,7 +256,7 @@ export function ApplicationDetailPage() {
             {office && !can('review') ? (
               <p className="text-sm text-surface-500">
                 Verified by {office.verifiedBy} on {formatDate(office.verificationDate)} · Sanctioned{' '}
-                <b className="text-primary-700 dark:text-primary-300">{formatINR(office.sanctionedAmount)}</b>
+                <b className="text-primary-700">{formatINR(office.sanctionedAmount)}</b>
               </p>
             ) : can('review') ? (
               <div className="space-y-4">
@@ -268,10 +269,10 @@ export function ApplicationDetailPage() {
                 {app.status === 'submitted' || app.status === 'under_review' ? (
                   <div className="flex flex-wrap gap-2 no-print">
                     <button className="btn-primary" onClick={() => setDecide('approve')}>
-                      <CheckCircle2 className="h-4 w-4" /> Approve / <span className="ta">அனுமதி</span>
+                      <CheckCircle2 className="h-4 w-4" /> Approve <span className="ta">/ அனுமதி</span>
                     </button>
                     <button className="btn-danger" onClick={() => setDecide('reject')}>
-                      <XCircle className="h-4 w-4" /> Reject / <span className="ta">மறு</span>
+                      <XCircle className="h-4 w-4" /> Reject <span className="ta">/ மறு</span>
                     </button>
                   </div>
                 ) : (
@@ -279,7 +280,7 @@ export function ApplicationDetailPage() {
                 )}
               </div>
             ) : (
-              <p className="text-sm text-surface-400">Sign in as staff to review / ஊழியராக உள்நுழைந்து ஆய்வு செய்யவும்</p>
+              <p className="text-sm text-surface-400">Sign in as staff to review<span className="ta">/ ஊழியராக உள்நுழைந்து ஆய்வு செய்யவும்</span></p>
             )}
           </Section>
         )}
@@ -298,10 +299,10 @@ export function ApplicationDetailPage() {
           </Field>
           <div className="flex justify-end gap-2">
             <button className="btn-ghost" onClick={() => setDecide(null)}>
-              Cancel / <span className="ta">ரத்து</span>
+              Cancel <span className="ta">/ ரத்து</span>
             </button>
             <button className={decide === 'approve' ? 'btn-primary' : 'btn-danger'} onClick={() => void submitDecision()}>
-              Confirm / <span className="ta">உறுதி</span>
+              Confirm <span className="ta">/ உறுதி</span>
             </button>
           </div>
         </div>
@@ -312,9 +313,9 @@ export function ApplicationDetailPage() {
 
 function Section({ title, titleTa, children }: { title: string; titleTa: string; children: React.ReactNode }) {
   return (
-    <section className="glass-card p-5">
+    <section className="card p-5">
       <h2 className="section-title mb-4 text-base">
-        {title} <span className="ta text-sm font-semibold text-amber-600 dark:text-amber-300">/ {titleTa}</span>
+        {title} <span className="ta text-sm font-semibold text-amber-600">/ {titleTa}</span>
       </h2>
       {children}
     </section>
@@ -328,18 +329,46 @@ function Grid({ children }: { children: React.ReactNode }) {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs font-medium text-surface-400">{label}</p>
-      <p className="text-sm font-semibold text-surface-800 dark:text-surface-100">{value || '—'}</p>
+      <p className="text-xs font-medium text-surface-400"><T>{label}</T></p>
+      <p className="text-sm font-semibold text-surface-800">{value || '—'}</p>
     </div>
   )
 }
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-surface-200 p-3 dark:border-surface-700">
-      <p className="text-xs font-medium text-surface-400">{label}</p>
-      <p className="text-sm font-semibold text-surface-800 dark:text-surface-100">{value}</p>
+    <div className="rounded-xl border border-surface-200 p-3">
+      <p className="text-xs font-medium text-surface-400"><T>{label}</T></p>
+      <p className="text-sm font-semibold text-surface-800"><T>{value}</T></p>
     </div>
+  )
+}
+
+/** Opens a stored document through a short-lived signed link, or an inline file in local mode. */
+function DocumentLink({ doc }: { doc: AttachedDocument }) {
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
+  // Only ever hand the browser a data: URL we created; never a scheme from the record.
+  const inline = doc.dataUrl?.startsWith('data:') ? doc.dataUrl : null
+  if (!doc.storagePath && !inline) return <span className="text-xs text-surface-400">Not uploaded</span>
+  const open = async () => {
+    if (inline) {
+      const a = document.createElement('a')
+      a.href = inline
+      a.download = doc.name
+      a.click()
+      return
+    }
+    setBusy(true)
+    const url = await documentUrl(doc.storagePath!)
+    setBusy(false)
+    if (url) window.open(url, '_blank', 'noopener')
+    else setFailed(true)
+  }
+  return (
+    <button type="button" className="btn-ghost !px-2.5 !py-1 !text-xs" disabled={busy} onClick={() => void open()}>
+      {failed ? 'Unavailable' : busy ? 'Opening…' : 'Open'} <span className="ta">/ திற</span>
+    </button>
   )
 }
 

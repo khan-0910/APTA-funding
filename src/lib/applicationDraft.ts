@@ -106,7 +106,7 @@ export function emptyDraft(): ApplicationDraft {
       district: 'Salem',
       state: 'Tamil Nadu',
       pinCode: '',
-      mobile: '+91 ',
+      mobile: '',
       aadhaar: '',
       maritalStatus: '',
     },
@@ -158,8 +158,8 @@ export function emptyDraft(): ApplicationDraft {
       statement: '',
     },
     references: [
-      { name: '', occupation: '', mobile: '+91 ', relationship: '', address: '' },
-      { name: '', occupation: '', mobile: '+91 ', relationship: '', address: '' },
+      { name: '', occupation: '', mobile: '', relationship: '', address: '' },
+      { name: '', occupation: '', mobile: '', relationship: '', address: '' },
     ],
     declaration: {
       undertakingAgreed: false,

@@ -42,7 +42,9 @@ export function formatDateTime(iso: string | null | undefined): string {
 }
 
 export function formatIndianMobile(raw: string): string {
-  const digits = raw.replace(/\D/g, '').replace(/^91/, '').slice(0, 10)
+  // Strip a +91 country code only when it's really there: 91xxxxxxxx is a valid mobile prefix.
+  const all = raw.replace(/\D/g, '')
+  const digits = (all.length > 10 && all.startsWith('91') ? all.slice(2) : all).slice(0, 10)
   if (digits.length <= 5) return digits
   return `${digits.slice(0, 5)} ${digits.slice(5)}`
 }
