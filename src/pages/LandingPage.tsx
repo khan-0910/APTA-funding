@@ -4,7 +4,7 @@ import { ArrowRight, BadgeCheck, ClipboardList, FileText, HandCoins, HeartHandsh
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { SplitText } from 'gsap/SplitText'
-import { LangSwitch, Logo } from '@/components/AppShell'
+import { FooterLinks, LangSwitch, Logo } from '@/components/AppShell'
 import { useAuth } from '@/lib/auth'
 import { useStore } from '@/lib/store'
 import { formatINR } from '@/lib/format'
@@ -415,9 +415,9 @@ export function LandingPage() {
       <footer className="border-t border-surface-200">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-5 py-8 text-sm text-surface-500 sm:flex-row sm:items-center sm:justify-between">
           <p>APTA Empowers · All Praise To Allah · Salem, Tamil Nadu</p>
-          <div className="flex gap-5">
-            <Link to="/login" className="hover:text-surface-800">Staff sign in</Link>
-            <Link to="/register" className="hover:text-surface-800">Create account</Link>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <Link to="/login" className="hover:text-surface-800">Sign in</Link>
+            <FooterLinks />
           </div>
         </div>
       </footer>

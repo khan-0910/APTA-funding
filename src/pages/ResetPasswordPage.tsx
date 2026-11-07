@@ -28,8 +28,8 @@ export function ResetPasswordPage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters / கடவுச்சொல் குறைந்தது 6 எழுத்துகள்.')
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters / கடவுச்சொல் குறைந்தது 8 எழுத்துகள்.')
       return
     }
     if (password !== confirm) {
@@ -54,7 +54,7 @@ export function ResetPasswordPage() {
             <h1 className="text-xl font-bold text-surface-900">
               Set a new password <span className="ta text-amber-600">/ புதிய கடவுச்சொல்</span>
             </h1>
-            <p className="text-xs text-surface-500">Choose a password of at least 6 characters</p>
+            <p className="text-xs text-surface-500">Choose a password of at least 8 characters</p>
           </div>
         </div>
 

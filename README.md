@@ -86,7 +86,8 @@ One-time migration runbook (Dashboard → SQL Editor + Authentication settings):
    - documents go to the private `documents` Storage bucket (PDF/PNG/JPG, 5 MB), readable by the
      owner and staff through 60-second signed links.
    Legacy (pre-Auth) users sign up again with the same email; part 1b links their old profile.
-6. Push to `main`; GitHub Actions builds and deploys.
+6. SQL Editor → **part4-limits** (per-account caps on rows and uploads; closes helper functions to anonymous callers).
+7. Push to `main`; GitHub Actions builds and deploys.
 
 ### Email confirmation & SMTP
 
@@ -110,6 +111,70 @@ admin creating a staff account still gets the role applied immediately.
 3. Update Supabase Site URL / Redirect URLs to the new domain, then re-run the deploy.
 
 Routing, the 404 deep-link fallback and auth redirects all follow `SITE_BASE`.
+
+## Deploying to Vercel
+
+1. vercel.com → **Add New → Project** → import `khan-0910/APTA-funding`. Framework: **Vite**
+   (picked up from `vercel.json`). Build `npm run build`, output `dist`. No env vars are required:
+   the public Supabase URL and publishable key ship in `.env.production`, and the build detects
+   Vercel and serves from `/`.
+2. Deploy. Note the URL (e.g. `apta-funding.vercel.app`).
+3. Supabase → Authentication → URL Configuration: set **Site URL** to the Vercel URL and add
+   `https://<your-app>.vercel.app/**` to **Redirect URLs** (keep the GitHub Pages URL there too while
+   both are live).
+4. Optional: Vercel → Settings → Domains for a custom domain, then repeat step 3 for it.
+5. Once Vercel is the real site, disable GitHub Pages (Settings → Pages → Source: None) so there is
+   one address to keep up to date.
+
+`vercel.json` adds SPA rewrites and security headers (no framing, HSTS, nosniff, strict referrer,
+locked-down browser permissions); the build also ships a Content-Security-Policy that only allows
+this site and your own Supabase project.
+
+## Keeping it free
+
+Nothing in this project can create a bill as long as:
+
+- **Supabase** stays on the **Free** plan with no card on the organisation. Free projects that go over
+  a quota are restricted or paused, never charged. (Inactive Free projects pause after a week; the
+  dashboard has a one-click restore.)
+- **Vercel** stays on **Hobby** with no card. Don't enable paid add-ons (Analytics Plus, Speed
+  Insights beyond the free tier, Edge Config, Blob, KV/Postgres, Image Optimization — none are used).
+  Vercel's Hobby plan is officially for personal, non-commercial projects. An organisation's
+  website is a grey area under their terms: hitting a limit pauses the site rather than billing,
+  but if you want zero ambiguity, GitHub Pages (already set up) or Cloudflare Pages are free for
+  organisations too.
+- No secret keys exist anywhere in this repo or its history — only the **publishable** Supabase key,
+  which is designed to be public and is limited by Row Level Security. Never add the
+  `service_role` / `sb_secret_…` key to the frontend or to Vercel env vars.
+- There are no server functions, cron jobs, paid APIs, email services or analytics. The contact page
+  uses plain email/phone links, not a form backend.
+
+Abuse limits already in place: RLS on every table (anonymous visitors read nothing but the
+totals-only stats function), per-account caps on applications, reports and uploads (part 4),
+5 MB / PDF-PNG-JPG-only private storage, GraphQL disabled, and the schema endpoint requires a secret key.
+
+### Bot protection (recommended, free)
+
+1. Cloudflare dashboard → **Turnstile** → Add widget → hostname = your Vercel domain → copy the
+   **site key** and **secret key**.
+2. Vercel → Settings → Environment Variables → `VITE_TURNSTILE_SITE_KEY` = site key → redeploy.
+3. Check sign-in shows the Turnstile box, then Supabase → Authentication → **Bot and Abuse Protection**
+   → enable CAPTCHA → Turnstile → paste the **secret** key.
+
+Do step 3 last: once Supabase requires a CAPTCHA, a build without the site key can't sign anyone in.
+
+### Also worth setting in Supabase (free)
+
+- Authentication → Sign In / Up → **minimum password length 8** (the app already asks for 8).
+- Authentication → Rate Limits: keep the defaults or lower sign-ups per hour.
+- Database → Extensions: leave `pg_graphql` disabled.
+
+## Contact & legal pages
+
+`/contact`, `/privacy` and `/terms` read the organisation's details from `src/lib/site.ts`
+(empty fields are simply hidden). Sign-up requires accepting the Privacy Policy and Terms; the
+acceptance time and policy version are stored on the Supabase Auth user (`consent_at`,
+`consent_version`). Bump `POLICY_VERSION` in `site.ts` when the policy changes.
 
 ## Feature Map
 

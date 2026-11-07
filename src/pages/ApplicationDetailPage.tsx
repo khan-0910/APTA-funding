@@ -4,7 +4,7 @@ import { T } from '@/lib/lang'
 import { ArrowLeft, CheckCircle2, Printer, XCircle } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { useAuth } from '@/lib/auth'
-import { formatDate, formatINR, todayISO } from '@/lib/format'
+import { formatDate, formatINR, maskAadhaar, todayISO } from '@/lib/format'
 import { Field, PageHeader, StatusBadge, Modal } from '@/components/ui'
 import { documentUrl } from '@/lib/persistence'
 import type { Application, AttachedDocument, Beneficiary } from '@/types'
@@ -147,7 +147,7 @@ export function ApplicationDetailPage() {
               <Row label="Age / வயது" value={str(basic.age)} />
               <Row label="Gender / பாலினம்" value={str(basic.gender)} />
               <Row label="Mobile / கைபேசி" value={str(basic.mobile)} />
-              <Row label="Aadhaar / ஆதார்" value={str(basic.aadhaar)} />
+              <Row label="Aadhaar / ஆதார்" value={str(basic.aadhaar) && maskAadhaar(str(basic.aadhaar))} />
               <Row label="Marital Status / திருமண நிலை" value={str(basic.maritalStatus)} />
               <Row label="Address / முகவரி" value={[str(basic.doorNo), str(basic.street), str(basic.villageTown), str(basic.district), str(basic.state), str(basic.pinCode)].filter(Boolean).join(', ')} />
             </Grid>

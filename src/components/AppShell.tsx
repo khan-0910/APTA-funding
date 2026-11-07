@@ -41,6 +41,16 @@ export function Logo({ className = '' }: { className?: string }) {
   )
 }
 
+export function FooterLinks() {
+  return (
+    <nav className="flex gap-4" aria-label="Legal">
+      <Link to="/contact" className="hover:text-surface-800">Contact</Link>
+      <Link to="/privacy" className="hover:text-surface-800">Privacy</Link>
+      <Link to="/terms" className="hover:text-surface-800">Terms</Link>
+    </nav>
+  )
+}
+
 export function LangSwitch() {
   const { lang, setLang } = useLang()
   return (
@@ -226,8 +236,9 @@ export function AppShell() {
           <Outlet />
         </main>
 
-        <footer className="border-t border-surface-200 px-6 py-4 text-xs text-surface-500 no-print">
-          APTA Empowers · Zakkath education fund, Salem, Tamil Nadu
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-surface-200 px-6 py-4 text-xs text-surface-500 no-print">
+          <span>APTA Empowers · Zakkath education fund, Salem, Tamil Nadu</span>
+          <FooterLinks />
         </footer>
       </div>
 

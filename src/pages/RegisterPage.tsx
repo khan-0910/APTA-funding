@@ -4,6 +4,7 @@ import { useBi, T } from '@/lib/lang'
 import { HeartHandshake, ShieldAlert } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { Field } from '@/components/ui'
+import { CAPTCHA_ON, Captcha } from '@/components/Captcha'
 import type { UserRole } from '@/types'
 
 export function RegisterPage() {
@@ -22,12 +23,19 @@ export function RegisterPage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
+  const [consent, setConsent] = useState(false)
+  const [captcha, setCaptcha] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters / கடவுச்சொல் குறைந்தது 6 எழுத்துகள்.')
+    if (!consent) {
+      setError('Please accept the Privacy Policy and Terms / தனியுரிமைக் கொள்கையை ஏற்கவும்.')
+      return
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters / கடவுச்சொல் குறைந்தது 8 எழுத்துகள்.')
       return
     }
     if ((role === 'admin' || role === 'staff') && !canManage) {
@@ -35,7 +43,8 @@ export function RegisterPage() {
       return
     }
     setBusy(true)
-    const res = await register(name, email, password, role)
+    const res = await register(name, email, password, role, captcha ?? undefined)
+    setAttempt((n) => n + 1) // CAPTCHA tokens are single-use
     setBusy(false)
     if (res.ok && res.signedIn === false) {
       // Either an admin created a colleague (and stays signed in), or the address must be confirmed first.
@@ -76,7 +85,7 @@ export function RegisterPage() {
           <Field label="Email" labelTa="மின்னஞ்சல்" required>
             <input className="input-base" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           </Field>
-          <Field label="Password" labelTa="கடவுச்சொல்" required hint="Minimum 6 characters">
+          <Field label="Password" labelTa="கடவுச்சொல்" required hint="Minimum 8 characters">
             <input className="input-base" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
           </Field>
           <Field label="I am registering as" labelTa="பதிவு செய்யும் வகை" required>
@@ -101,7 +110,23 @@ export function RegisterPage() {
               <T>{notice}</T>
             </p>
  )}
-          <button className="btn-primary w-full" disabled={busy}>
+          <label className="flex items-start gap-2.5 text-sm text-surface-600">
+            <input
+              type="checkbox"
+              required
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-primary-600"
+            />
+            <span>
+              I agree to the <Link to="/privacy" className="font-medium text-primary-700 hover:underline">Privacy Policy</Link> and{' '}
+              <Link to="/terms" className="font-medium text-primary-700 hover:underline">Terms of Use</Link>. If I am under 18, my parent or
+              guardian is completing this with me and consents.
+              <span className="ta block text-xs text-surface-500">தனியுரிமைக் கொள்கை மற்றும் விதிமுறைகளை ஏற்கிறேன்.</span>
+            </span>
+          </label>
+          <Captcha key={attempt} onToken={setCaptcha} />
+          <button className="btn-primary w-full" disabled={busy || !consent || (CAPTCHA_ON && !captcha)}>
             {busy ? 'Creating account…' : <T>{'Create Account / கணக்கை உருவாக்கு'}</T>}
           </button>
         </form>

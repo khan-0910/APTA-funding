@@ -1,5 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+// Fonts are bundled with the site (no Google Fonts request, so no visitor data leaves for a third party).
+import '@fontsource-variable/inter/index.css'
+import '@fontsource-variable/source-serif-4/index.css'
+import '@fontsource/noto-sans-tamil/400.css'
+import '@fontsource/noto-sans-tamil/600.css'
 import './index.css'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { LangProvider } from '@/lib/lang'
@@ -55,6 +60,9 @@ const router = createBrowserRouter([
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
       { path: 'reset', element: <ResetPasswordPage /> },
+      { path: 'contact', lazy: () => import('@/pages/LegalPages').then((m) => ({ Component: m.ContactPage })) },
+      { path: 'privacy', lazy: () => import('@/pages/LegalPages').then((m) => ({ Component: m.PrivacyPage })) },
+      { path: 'terms', lazy: () => import('@/pages/LegalPages').then((m) => ({ Component: m.TermsPage })) },
       { path: 'applications', element: <MyApplicationsPage /> },
       { path: 'applications/new', lazy: () => import('@/pages/NewApplicationPage').then((m) => ({ Component: m.NewApplicationPage })) },
       { path: 'applications/:id', lazy: () => import('@/pages/ApplicationDetailPage').then((m) => ({ Component: m.ApplicationDetailPage })) },

@@ -4,6 +4,7 @@ import { T } from '@/lib/lang'
 import { GraduationCap, KeyRound } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { Field } from '@/components/ui'
+import { CAPTCHA_ON, Captcha } from '@/components/Captcha'
 
 export function LoginPage() {
   const { signIn, resetPassword } = useAuth()
@@ -14,13 +15,17 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false)
   const [resetSent, setResetSent] = useState(false)
   const [resetBusy, setResetBusy] = useState(false)
+  const [captcha, setCaptcha] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const captchaMissing = CAPTCHA_ON && !captcha
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setBusy(true)
-    const res = await signIn(email, password)
+    const res = await signIn(email, password, captcha ?? undefined)
     setBusy(false)
+    setAttempt((n) => n + 1) // CAPTCHA tokens are single-use
     if (res.ok) navigate('/applications')
     else setError(res.error ?? 'Sign in failed.')
   }
@@ -32,8 +37,9 @@ export function LoginPage() {
       return
     }
     setResetBusy(true)
-    const res = await resetPassword(email)
+    const res = await resetPassword(email, captcha ?? undefined)
     setResetBusy(false)
+    setAttempt((n) => n + 1)
     if (res.ok) setResetSent(true)
     else setError(res.error ?? 'Could not send reset email.')
   }
@@ -66,7 +72,8 @@ export function LoginPage() {
               Reset link sent — check your email<span className="ta">/ மீட்டமைப்பு இணைப்பு அனுப்பப்பட்டது — மின்னஞ்சலை சரிபார்க்கவும்.</span>
             </p>
           )}
-          <button className="btn-primary w-full" disabled={busy}>
+          <Captcha key={attempt} onToken={setCaptcha} />
+          <button className="btn-primary w-full" disabled={busy || captchaMissing}>
             {busy ? 'Signing in…' : <T>{'Sign In / உள்நுழை'}</T>}
           </button>
         </form>
@@ -74,7 +81,7 @@ export function LoginPage() {
         <button
           type="button"
           onClick={() => void sendReset()}
-          disabled={resetBusy}
+          disabled={resetBusy || captchaMissing}
           className="mt-3 flex w-full items-center justify-center gap-1.5 text-sm text-surface-500 hover:text-primary-600 disabled:opacity-50"
         >
           <KeyRound className="h-3.5 w-3.5" />

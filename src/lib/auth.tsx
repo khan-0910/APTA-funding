@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import type { UserAccount, UserRole } from '@/types'
 import { useStore } from './store'
 import { hashPassword, verifyPassword } from './hash'
+import { POLICY_VERSION } from './site'
 import { latency, supabase, decodeJwtSub, fetchAuthUserRow, getSupabaseSession } from './persistence'
 
 const SESSION_KEY = 'apta-session'
@@ -30,11 +31,12 @@ interface AuthShape {
   adminExists: boolean
   /** True when this browser holds a real Supabase Auth session (vs legacy custom session). */
   isSupabaseAuthed: boolean
-  signIn: (email: string, password: string) => Promise<AuthResult>
-  register: (name: string, email: string, password: string, role: UserRole) => Promise<AuthResult>
+  /** captchaToken: Cloudflare Turnstile token, required once CAPTCHA is on in Supabase. */
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<AuthResult>
+  register: (name: string, email: string, password: string, role: UserRole, captchaToken?: string) => Promise<AuthResult>
   signOut: () => Promise<void>
   /** Sends the password-reset email (Supabase Auth). */
-  resetPassword: (email: string) => Promise<AuthResult>
+  resetPassword: (email: string, captchaToken?: string) => Promise<AuthResult>
   /** Sets a new password for the currently-authed user (reset-link or signed-in flow). */
   updatePassword: (newPassword: string) => Promise<AuthResult>
   can: (permission: 'review' | 'manage_partners' | 'accounting' | 'audit' | 'view_beneficiaries') => boolean
@@ -153,13 +155,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const signIn = useCallback(
-    async (email: string, password: string): Promise<AuthResult> => {
+    async (email: string, password: string, captchaToken?: string): Promise<AuthResult> => {
       const normalized = email.trim().toLowerCase()
       if (!supabase) await latency()
 
       // ---- Supabase Auth (primary) ----
       if (supabase) {
-        const { data, error } = await supabase.auth.signInWithPassword({ email: normalized, password })
+        const { data, error } = await supabase.auth.signInWithPassword({ email: normalized, password, options: { captchaToken } })
         if (!error && data.session) {
           const uid = data.user?.id ?? decodeJwtSub(data.session.access_token) ?? null
           const { row } = await fetchAuthUserRow('')
@@ -225,7 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const register = useCallback(
-    async (name: string, email: string, password: string, role: UserRole): Promise<AuthResult> => {
+    async (name: string, email: string, password: string, role: UserRole, captchaToken?: string): Promise<AuthResult> => {
       const normalized = email.trim().toLowerCase()
       if (!supabase) await latency()
 
@@ -278,7 +280,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.auth.signUp({
         email: normalized,
         password,
-        options: { data: { full_name: name.trim() }, emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login` },
+        options: {
+          // Consent record (Privacy Policy / Terms accepted on the sign-up form), kept on the Auth user.
+          data: { full_name: name.trim(), consent_at: new Date().toISOString(), consent_version: POLICY_VERSION },
+          emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login`,
+          captchaToken,
+        },
       })
       if (error) {
         const msg = error.message.toLowerCase()
@@ -381,10 +388,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     persistSession(null, null, null)
   }, [user, authUid, logEvent, persistSession, store])
 
-  const resetPassword = useCallback(async (email: string): Promise<AuthResult> => {
+  const resetPassword = useCallback(async (email: string, captchaToken?: string): Promise<AuthResult> => {
     if (!supabase) return { ok: false, error: 'Password reset requires the cloud database.' }
     const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}reset`
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo })
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo, captchaToken })
     // Supabase returns success even for unknown emails (no account enumeration).
     if (error) return { ok: false, error: `Could not send reset email: ${error.message}` }
     return { ok: true }
