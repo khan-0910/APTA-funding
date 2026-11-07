@@ -102,8 +102,10 @@ export function getSupabaseSession(): Session | null {
   try {
     const raw = window.localStorage.getItem(`sb-${ref}-auth-token`)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as { currentSession?: Session }
-    return parsed.currentSession ?? null
+    // supabase-js v2 stores the Session object itself; v1 wrapped it in `currentSession`.
+    const parsed = JSON.parse(raw) as Partial<Session> & { currentSession?: Session }
+    if (parsed.currentSession) return parsed.currentSession
+    return parsed.access_token ? (parsed as Session) : null
   } catch {
     return null
   }
