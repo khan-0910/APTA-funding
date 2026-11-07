@@ -46,6 +46,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     base,
+    define: {
+      // Speed Insights only exists on Vercel; elsewhere (GitHub Pages, local) it would 404.
+      'import.meta.env.VITE_ON_VERCEL': JSON.stringify(process.env.VERCEL ? '1' : ''),
+    },
     plugins: [react(), tailwindcss(), contentSecurityPolicy],
     resolve: {
       alias: { '@': path.resolve(__dirname, 'src') },

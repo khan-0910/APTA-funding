@@ -125,7 +125,9 @@ Routing, the 404 deep-link fallback and auth redirects all follow `SITE_BASE`.
    `https://<your-app>.vercel.app/**` to **Redirect URLs** (keep the GitHub Pages URL there too while
    both are live).
 4. Optional: Vercel → Settings → Domains for a custom domain, then repeat step 3 for it.
-5. Once Vercel is the real site, disable GitHub Pages (Settings → Pages → Source: None) so there is
+5. Project → **Speed Insights** → **Enable**. The app already ships the `<SpeedInsights />`
+   component (Vercel builds only; record ids are stripped from URLs before sending).
+6. Once Vercel is the real site, disable GitHub Pages (Settings → Pages → Source: None) so there is
    one address to keep up to date.
 
 `vercel.json` adds SPA rewrites and security headers (no framing, HSTS, nosniff, strict referrer,
@@ -139,8 +141,9 @@ Nothing in this project can create a bill as long as:
 - **Supabase** stays on the **Free** plan with no card on the organisation. Free projects that go over
   a quota are restricted or paused, never charged. (Inactive Free projects pause after a week; the
   dashboard has a one-click restore.)
-- **Vercel** stays on **Hobby** with no card. Don't enable paid add-ons (Analytics Plus, Speed
-  Insights beyond the free tier, Edge Config, Blob, KV/Postgres, Image Optimization — none are used).
+- **Vercel** stays on **Hobby** with no card. Speed Insights is used (included in Hobby; when the
+  monthly allowance runs out it stops collecting until next month — it can't bill without a card).
+  Don't enable paid add-ons (Web Analytics Plus, Edge Config, Blob, KV/Postgres, Image Optimization).
   Vercel's Hobby plan is officially for personal, non-commercial projects. An organisation's
   website is a grey area under their terms: hitting a limit pauses the site rather than billing,
   but if you want zero ambiguity, GitHub Pages (already set up) or Cloudflare Pages are free for

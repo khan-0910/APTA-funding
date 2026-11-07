@@ -113,8 +113,10 @@ export function PrivacyPage() {
           <li><strong>Sign-in records:</strong> the time of each sign-in or sign-out and your browser type, used to keep accounts secure.</li>
         </ul>
         <p className="mt-3">
-          We do not use advertising, analytics or tracking cookies, and we do not load fonts or scripts from tracking
-          services. Your browser stores your sign-in session and language preference locally so the site keeps working.
+          We do not use advertising or tracking cookies, and we do not load fonts or scripts from tracking services. To
+          keep the site fast we measure how quickly pages load (Vercel Speed Insights): this records the page type, browser
+          and device type and load timings — no cookies, no names, emails or record numbers. Your browser stores your
+          sign-in session and language preference locally so the site keeps working.
         </p>
       </section>
 
@@ -139,7 +141,7 @@ export function PrivacyPage() {
         <ul>
           <li><strong>You</strong> can see your own account, applications, documents and reports.</li>
           <li><strong>Authorised APTA staff and volunteers</strong> who review applications can see application data. Access is enforced by the database itself, not just the website.</li>
-          <li><strong>Service providers</strong> that run the site for us under contract: Supabase (database, sign-in and document storage{SITE.dataRegion && `, hosted in ${SITE.dataRegion}`}) and Vercel (delivers the website's pages; it does not receive your application data){/* Turnstile is listed only when enabled */}{import.meta.env.VITE_TURNSTILE_SITE_KEY ? ', and Cloudflare Turnstile (a bot check on sign-in forms)' : ''}.</li>
+          <li><strong>Service providers</strong> that run the site for us under contract: Supabase (database, sign-in and document storage{SITE.dataRegion && `, hosted in ${SITE.dataRegion}`}) and Vercel (delivers the website's pages and measures page speed; it does not receive your application data){/* Turnstile is listed only when enabled */}{import.meta.env.VITE_TURNSTILE_SITE_KEY ? ', and Cloudflare Turnstile (a bot check on sign-in forms)' : ''}.</li>
           <li><strong>Authorities</strong>, only where the law requires it.</li>
         </ul>
         <p className="mt-3">We never sell your data or share it with donors, partners or advertisers.</p>

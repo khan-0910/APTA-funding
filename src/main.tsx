@@ -7,6 +7,7 @@ import '@fontsource/noto-sans-tamil/400.css'
 import '@fontsource/noto-sans-tamil/600.css'
 import './index.css'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import { LangProvider } from '@/lib/lang'
 import { StoreProvider } from '@/lib/store'
 import { AuthProvider } from '@/lib/auth'
@@ -82,6 +83,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <StoreProvider>
         <AuthProvider>
           <RouterProvider router={router} />
+          {import.meta.env.VITE_ON_VERCEL && (
+            // Anonymous page-speed metrics (no cookies). Application ids are collapsed so
+            // reports group by page type and never carry a record id.
+            <SpeedInsights
+              beforeSend={(e) => ({ ...e, url: e.url.split(/[?#]/)[0].replace(/\/applications\/(?!new\b)[^/]+/, '/applications/[id]') })}
+            />
+          )}
         </AuthProvider>
       </StoreProvider>
     </LangProvider>
