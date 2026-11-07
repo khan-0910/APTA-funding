@@ -386,13 +386,42 @@ function fromDbLoginLog(r: any): LoginLog {
 /* Cloud read                                                          */
 /* ------------------------------------------------------------------ */
 
+/** Last `updated_at` seen from the cloud for each row, per collection (edit-conflict checks). */
+export type Versions = Record<DataKey, Map<string, string>>
+
+export function emptyVersions(): Versions {
+  return Object.fromEntries(Object.keys(freshData()).map((k) => [k, new Map()])) as Versions
+}
+
+const TABLES: Record<DataKey, { table: string; toDb: (row: any) => unknown; fromDb: (row: any) => unknown }> = {
+  accounts: { table: 'user_accounts', toDb: toDbAccount, fromDb: fromDbAccount },
+  loginLogs: { table: 'login_logs', toDb: toDbLoginLog, fromDb: fromDbLoginLog },
+  applications: { table: 'applications', toDb: toDbApplication, fromDb: fromDbApplication },
+  beneficiaries: { table: 'beneficiaries', toDb: toDbBeneficiary, fromDb: fromDbBeneficiary },
+  transactions: { table: 'transactions', toDb: toDbTransaction, fromDb: fromDbTransaction },
+  partners: { table: 'partners', toDb: toDbPartner, fromDb: fromDbPartner },
+  progressReports: { table: 'progress_reports', toDb: toDbProgressReport, fromDb: fromDbProgressReport },
+}
+
+export const tableOf = (key: DataKey): string => TABLES[key].table
+
+/** Map a raw database row (e.g. from a Realtime event) to the app's shape. */
+export function fromDb(key: DataKey, raw: unknown): { id: string } {
+  return TABLES[key].fromDb(raw) as { id: string }
+}
+
+/** Collections where another person's concurrent edit is worth guarding against. */
+const VERSIONED: DataKey[] = ['applications', 'beneficiaries', 'transactions', 'partners', 'progressReports']
+
+const sameVersion = (a: string, b: string) => Date.parse(a) === Date.parse(b)
+
 /**
  * Fetch every table. Returns null when Supabase is unreachable/misconfigured.
  * If the first fetch fails on permission grounds while an Auth session exists
  * (e.g. the browser refreshed a token mid-boot), it retries once with the
  * refreshed session before giving up.
  */
-export async function fetchAllCloud(): Promise<DataState | null> {
+export async function fetchAllCloud(): Promise<{ state: DataState; versions: Versions } | null> {
   if (!supabase) return null
   try {
     const fetchOnce = async () =>
@@ -406,29 +435,25 @@ export async function fetchAllCloud(): Promise<DataState | null> {
         supabase!.from('progress_reports').select('*').order('submitted_at', { ascending: false }),
       ])
 
-    let [accounts, logs, apps, bens, txns, parts, reports] = await fetchOnce()
-    const hasError = (arr: unknown[]) => arr.some((r) => (r as { error: unknown }).error)
-    if (hasError([accounts, logs, apps, bens, txns, parts, reports]) && getSupabaseSession()) {
+    let results = await fetchOnce()
+    if (results.some((r) => r.error) && getSupabaseSession()) {
       await supabase.auth.getSession() // refresh the local session if needed
-      ;[accounts, logs, apps, bens, txns, parts, reports] = await fetchOnce()
+      results = await fetchOnce()
     }
-    const errors = [accounts.error, logs.error, apps.error, bens.error, txns.error, parts.error, reports.error]
-    if (errors.some(Boolean)) {
-      console.warn(
-        '[apta] Supabase fetch error(s):',
-        errors.filter(Boolean).map((e) => (e as { message: string }).message).join('; '),
-      )
+    const errors = results.map((r) => r.error).filter(Boolean)
+    if (errors.length > 0) {
+      console.warn('[apta] Supabase fetch error(s):', errors.map((e) => e!.message).join('; '))
       return null
     }
-    return {
-      accounts: (accounts.data ?? []).map(fromDbAccount),
-      loginLogs: (logs.data ?? []).map(fromDbLoginLog),
-      applications: (apps.data ?? []).map(fromDbApplication),
-      beneficiaries: (bens.data ?? []).map(fromDbBeneficiary),
-      transactions: (txns.data ?? []).map(fromDbTransaction),
-      partners: (parts.data ?? []).map(fromDbPartner),
-      progressReports: (reports.data ?? []).map(fromDbProgressReport),
-    }
+    const keys: DataKey[] = ['accounts', 'loginLogs', 'applications', 'beneficiaries', 'transactions', 'partners', 'progressReports']
+    const state = freshData()
+    const versions = emptyVersions()
+    keys.forEach((key, i) => {
+      const rows = (results[i].data ?? []) as Array<{ id: string; updated_at?: string }>
+      ;(state as Record<DataKey, unknown[]>)[key] = rows.map((r) => TABLES[key].fromDb(r))
+      for (const r of rows) if (r.updated_at) versions[key].set(r.id, r.updated_at)
+    })
+    return { state, versions }
   } catch (err) {
     console.warn('[apta] Supabase unreachable, staying on local data:', err)
     return null
@@ -439,35 +464,67 @@ export async function fetchAllCloud(): Promise<DataState | null> {
 /* Cloud write                                                         */
 /* ------------------------------------------------------------------ */
 
-const TABLES: Record<DataKey, { table: string; toDb: (row: any) => unknown }> = {
-  accounts: { table: 'user_accounts', toDb: toDbAccount },
-  loginLogs: { table: 'login_logs', toDb: toDbLoginLog },
-  applications: { table: 'applications', toDb: toDbApplication },
-  beneficiaries: { table: 'beneficiaries', toDb: toDbBeneficiary },
-  transactions: { table: 'transactions', toDb: toDbTransaction },
-  partners: { table: 'partners', toDb: toDbPartner },
-  progressReports: { table: 'progress_reports', toDb: toDbProgressReport },
+export interface PushResult {
+  /** Rows the cloud accepted (now in sync). */
+  saved: string[]
+  /** Rows someone else changed first: the latest cloud version, which was not overwritten. */
+  conflicts: Array<{ row: { id: string }; version: string }>
 }
 
 /**
- * Upsert only the given (changed) rows of one collection. Returns true when the cloud
- * accepted them, so the caller can mark them synced; failures are logged and retried
- * on the next change. Profiles linked to Supabase Auth are never bulk-pushed: their
- * bookkeeping is written under the owner's session (see auth.tsx).
+ * Upsert only the given (changed) rows of one collection.
+ *
+ * Before overwriting an existing row it compares the row's current `updated_at` in the
+ * cloud with the version this browser last saw (`known`). If someone else saved it in
+ * between, the row is not pushed and comes back as a conflict, so their edit is never
+ * silently lost. `known` is updated with the new versions of rows that were saved.
+ * Profiles linked to Supabase Auth are never bulk-pushed (see auth.tsx).
  */
-export async function pushRows(key: DataKey, rows: Array<{ id: string }>): Promise<boolean> {
-  if (!supabase) return true
-  const pushable = key === 'accounts' ? (rows as UserAccount[]).filter((a) => !a.authUid) : rows
-  if (pushable.length === 0) return true
-  const { table, toDb } = TABLES[key]
+export async function pushRows(key: DataKey, rows: Array<{ id: string }>, known: Map<string, string>): Promise<PushResult> {
+  const result: PushResult = { saved: [], conflicts: [] }
+  if (!supabase) return { saved: rows.map((r) => r.id), conflicts: [] }
+  const { table, toDb, fromDb: map } = TABLES[key]
+  let pushable = key === 'accounts' ? (rows as UserAccount[]).filter((a) => !a.authUid) : rows
+  // Linked profiles are written elsewhere; count them as handled so they stop being "dirty".
+  result.saved.push(...rows.filter((r) => !pushable.includes(r)).map((r) => r.id))
+
   try {
-    const { error } = await supabase.from(table).upsert(pushable.map(toDb), { onConflict: 'id' })
-    if (error) console.warn(`[apta] cloud push to ${table} rejected:`, error.message)
-    return !error
+    const updates = VERSIONED.includes(key) ? pushable.filter((r) => known.has(r.id)) : []
+    if (updates.length > 0) {
+      const { data, error } = await supabase.from(table).select('*').in('id', updates.map((r) => r.id))
+      if (error) {
+        console.warn(`[apta] conflict check on ${table} failed:`, error.message)
+        return result
+      }
+      const stale = new Set<string>()
+      for (const cloud of (data ?? []) as Array<{ id: string; updated_at?: string }>) {
+        const seen = known.get(cloud.id)
+        if (cloud.updated_at && seen && !sameVersion(cloud.updated_at, seen)) {
+          stale.add(cloud.id)
+          known.set(cloud.id, cloud.updated_at)
+          result.conflicts.push({ row: map(cloud) as { id: string }, version: cloud.updated_at })
+        }
+      }
+      pushable = pushable.filter((r) => !stale.has(r.id))
+    }
+    if (pushable.length === 0) return result
+
+    const { data, error } = await supabase
+      .from(table)
+      .upsert(pushable.map(toDb), { onConflict: 'id' })
+      .select(VERSIONED.includes(key) ? 'id, updated_at' : 'id')
+    if (error) {
+      console.warn(`[apta] cloud push to ${table} rejected:`, error.message)
+      return result
+    }
+    for (const r of (data ?? []) as unknown as Array<{ id: string; updated_at?: string }>) {
+      if (r.updated_at) known.set(r.id, r.updated_at)
+    }
+    result.saved.push(...pushable.map((r) => r.id))
   } catch (err) {
     console.warn(`[apta] cloud push to ${table} failed:`, err)
-    return false
   }
+  return result
 }
 
 /* ------------------------------------------------------------------ */

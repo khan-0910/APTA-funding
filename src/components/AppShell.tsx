@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
+  AlertTriangle,
   BadgeIndianRupee,
   ClipboardCheck,
   Database,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react'
 import { DEV_TOOLS, useAuth } from '@/lib/auth'
 import { useLang } from '@/lib/lang'
+import { useStore } from '@/lib/store'
 import { DatabaseViewerModal } from './DatabaseViewerModal'
 import type { UserRole } from '@/types'
 
@@ -79,6 +81,7 @@ export function LangSwitch() {
 
 export function AppShell() {
   const { user, can, signOut, setDevRole, devRoleOverride } = useAuth()
+  const { notices, dismissNotice } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -233,6 +236,19 @@ export function AppShell() {
           <div className="mb-4 sm:hidden no-print">
             <LangSwitch />
           </div>
+          {notices.length > 0 && (
+            <div className="mb-5 space-y-2 no-print" role="status" aria-live="polite">
+              {notices.map((n, i) => (
+                <div key={i} className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p className="flex-1">{n}</p>
+                  <button onClick={() => dismissNotice(i)} className="rounded p-0.5 hover:bg-amber-100" aria-label="Dismiss">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <Outlet />
         </main>
 

@@ -87,7 +87,8 @@ One-time migration runbook (Dashboard → SQL Editor + Authentication settings):
      owner and staff through 60-second signed links.
    Legacy (pre-Auth) users sign up again with the same email; part 1b links their old profile.
 6. SQL Editor → **part4-limits** (per-account caps on rows and uploads; closes helper functions to anonymous callers).
-7. Push to `main`; GitHub Actions builds and deploys.
+7. SQL Editor → **part5-live** (`updated_at` on every table + Realtime publication: live updates and edit-conflict detection).
+8. Push to `main`; GitHub Actions builds and deploys.
 
 ### Email confirmation & SMTP
 
@@ -168,6 +169,27 @@ Do step 3 last: once Supabase requires a CAPTCHA, a build without the site key c
 - Authentication → Sign In / Up → **minimum password length 8** (the app already asks for 8).
 - Authentication → Rate Limits: keep the defaults or lower sign-ups per hour.
 - Database → Extensions: leave `pg_graphql` disabled.
+
+## Several people at once
+
+- **Live updates**: open browsers subscribe to Supabase Realtime, so new and edited records from
+  other staff appear without reloading. Realtime applies the same RLS (students only receive their
+  own rows). Login logs are not live.
+- **Edit conflicts**: each row carries a database-stamped `updated_at`. Before saving a change to an
+  existing row, the app checks the row hasn't changed since it was loaded; if someone else saved
+  first, their version is kept and shown, and a notice asks the user to redo their edit. New rows
+  never conflict (random ids).
+
+## Backups & staying awake
+
+- **Backups**: admins get **Backup (.json)** and **Spreadsheets (.csv)** buttons in the Database
+  Viewer (header database icon). The JSON is complete and restorable; the CSVs open in Excel/Sheets
+  (UTF-8 for Tamil, formula-injection-safe). Uploaded documents are not included — download those
+  from Supabase → Storage → documents if needed. Free Supabase projects have no downloadable
+  backups, so take one regularly (e.g. monthly) and keep it somewhere private: it contains personal data.
+- **Keep-alive**: `.github/workflows/keep-alive.yml` makes one read-only request every 3 days so the
+  free project never auto-pauses. GitHub turns scheduled workflows off after 60 days without commits
+  to the repo; if that happens, Actions → "Keep Supabase awake" → **Enable workflow**.
 
 ## Contact & legal pages
 

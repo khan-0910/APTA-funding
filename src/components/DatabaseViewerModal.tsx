@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { ShieldCheck, Trash2 } from 'lucide-react'
+import { Download, ShieldCheck, Trash2 } from 'lucide-react'
+import { downloadCsvBackup, downloadJsonBackup } from '@/lib/backup'
 import { useStore } from '@/lib/store'
 import { useAuth } from '@/lib/auth'
 import { formatDateTime, formatINR } from '@/lib/format'
@@ -78,6 +79,24 @@ export function DatabaseViewerModal({ open, onClose }: { open: boolean; onClose:
           <span className="badge bg-surface-100 text-surface-500">
             {store.syncState === 'cloud' ? 'Supabase connected' : 'Local storage'}
           </span>
+          {can('audit') && (
+            <span className="flex items-center gap-1.5">
+              <button
+                onClick={() => downloadJsonBackup(store)}
+                className="btn-ghost !px-3 !py-1.5 !text-xs"
+                title="Everything in one file (documents are not included). Contains personal data — store it securely."
+              >
+                <Download className="h-3.5 w-3.5" /> Backup (.json)
+              </button>
+              <button
+                onClick={() => downloadCsvBackup(store)}
+                className="btn-ghost !px-3 !py-1.5 !text-xs"
+                title="One spreadsheet per table. Contains personal data — store it securely."
+              >
+                <Download className="h-3.5 w-3.5" /> Spreadsheets (.csv)
+              </button>
+            </span>
+          )}
           {can('audit') &&
             (confirmClear ? (
               <span className="flex items-center gap-1.5">
