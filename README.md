@@ -88,7 +88,8 @@ One-time migration runbook (Dashboard → SQL Editor + Authentication settings):
    Legacy (pre-Auth) users sign up again with the same email; part 1b links their old profile.
 6. SQL Editor → **part4-limits** (per-account caps on rows and uploads; closes helper functions to anonymous callers).
 7. SQL Editor → **part5-live** (`updated_at` on every table + Realtime publication: live updates and edit-conflict detection).
-8. Push to `main`; GitHub Actions builds and deploys.
+8. SQL Editor → **part6-quality** (email-domain allowlist for sign-ups, one open application per student, range checks). To accept another email domain later: Table Editor → `allowed_email_domains` → Insert row (set `is_suffix` for whole families like `ac.in`).
+9. Push to `main`; GitHub Actions builds and deploys.
 
 ### Email confirmation & SMTP
 
