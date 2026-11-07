@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type {
   Application,
   Beneficiary,
@@ -51,6 +51,26 @@ export interface StoreShape extends DataState {
 
 const StoreContext = createContext<StoreShape | null>(null)
 
+/**
+ * Cloud copy wins for rows both sides know about; rows that exist only on this device
+ * (e.g. the login-log entry written a moment ago, not yet pushed) are kept so the next
+ * push still uploads them.
+ */
+function mergeCloud(local: DataState, cloud: DataState): { merged: DataState; hasLocalOnly: boolean } {
+  let hasLocalOnly = false
+  const merged = { ...cloud }
+  for (const key of Object.keys(cloud) as DataKey[]) {
+    const cloudRows = cloud[key] as Array<{ id: string }>
+    const ids = new Set(cloudRows.map((r) => r.id))
+    const localOnly = (local[key] as Array<{ id: string }>).filter((r) => !ids.has(r.id))
+    if (localOnly.length > 0) {
+      hasLocalOnly = true
+      ;(merged as Record<DataKey, unknown>)[key] = [...cloudRows, ...localOnly]
+    }
+  }
+  return { merged, hasLocalOnly }
+}
+
 const uid = (prefix: string): string =>
   `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
@@ -87,6 +107,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Cloud mode: re-hydrate when the Supabase Auth session changes. Once the anon
+  // policies are dropped (auth-migration-part2.sql), a logged-out visitor can read
+  // nothing, so the data must be fetched again under the new session after sign-in —
+  // and cleared after sign-out so the next person on a shared computer sees nothing.
+  const skipNextPush = useRef(false)
+  useEffect(() => {
+    if (!supabase) return
+    let cancelled = false
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== 'SIGNED_IN' && event !== 'SIGNED_OUT') return
+      // Defer: supabase-js forbids awaiting other client calls inside this callback.
+      window.setTimeout(() => {
+        void (async () => {
+          const cloud = await fetchAllCloud()
+          if (cancelled || !cloud) return
+          setData((prev) => {
+            if (event === 'SIGNED_OUT') {
+              skipNextPush.current = true
+              return cloud
+            }
+            const { merged, hasLocalOnly } = mergeCloud(prev, cloud)
+            // Nothing new on this device → no need to echo the fresh copy back up.
+            skipNextPush.current = !hasLocalOnly
+            return merged
+          })
+        })()
+      }, 0)
+    })
+    return () => {
+      cancelled = true
+      sub.subscription.unsubscribe()
+    }
+  }, [])
+
   // Mirror to localStorage so local-only mode (and offline resilience) keeps working.
   useEffect(() => {
     if (!SUPABASE_CONFIGURED) {
@@ -103,6 +157,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Cloud mode: push every mutation to PostgreSQL shortly after it happens.
   useEffect(() => {
     if (!SUPABASE_CONFIGURED || !ready) return
+    if (skipNextPush.current) {
+      skipNextPush.current = false
+      return
+    }
     const timer = window.setTimeout(() => {
       void pushCollections(
         ['accounts', 'loginLogs', 'applications', 'beneficiaries', 'transactions', 'partners', 'progressReports'],

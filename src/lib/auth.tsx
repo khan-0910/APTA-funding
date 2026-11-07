@@ -7,6 +7,13 @@ import { latency, supabase, decodeJwtSub, fetchAuthUserRow, getSupabaseSession }
 
 const SESSION_KEY = 'apta-session'
 
+/**
+ * Developer conveniences (the header role switcher) exist only in `npm run dev`.
+ * Production builds always use the role stored on the account in the database,
+ * so no visitor can flip the UI into Staff/Admin views.
+ */
+export const DEV_TOOLS: boolean = import.meta.env.DEV
+
 export interface AuthResult {
   ok: boolean
   error?: string
@@ -60,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (raw) {
           const session = JSON.parse(raw) as RawSession
           storedUserId = session.userId
-          storedDevRole = session.devRoleOverride ?? null
+          storedDevRole = DEV_TOOLS ? (session.devRoleOverride ?? null) : null
           setUserId(session.userId)
           setDevRoleOverride(storedDevRole)
           setAuthUid(session.authUid ?? null)
@@ -113,9 +120,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return store.accounts.find((a) => a.id === userId) ?? null
   }, [userId, store.accounts])
 
+  const activeOverride: UserRole | null = DEV_TOOLS ? devRoleOverride : null
   const effectiveRole: UserRole | null = user
-    ? (devRoleOverride ?? user.role)
-    : devRoleOverride
+    ? (activeOverride ?? user.role)
+    : activeOverride
 
   const logEvent = useCallback(
     async (
@@ -389,6 +397,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setDevRole = useCallback(
     (role: UserRole) => {
+      if (!DEV_TOOLS) return
       setDevRoleOverride(role)
       persistSession(userId, role, authUid)
     },
@@ -410,9 +419,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updatePassword,
       can,
       setDevRole,
-      devRoleOverride,
+      devRoleOverride: activeOverride,
     }),
-    [user, isAuthReady, adminExists, authUid, signIn, register, signOut, resetPassword, updatePassword, can, setDevRole, devRoleOverride],
+    [user, isAuthReady, adminExists, authUid, signIn, register, signOut, resetPassword, updatePassword, can, setDevRole, activeOverride],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

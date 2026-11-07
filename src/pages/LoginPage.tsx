@@ -39,14 +39,14 @@ export function LoginPage() {
 
   return (
     <div className="mx-auto max-w-md py-6">
-      <div className="glass-card p-7">
+      <div className="glass-card relative overflow-hidden p-7 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-gradient-to-r before:from-primary-800 before:via-amber-400 before:to-primary-800">
         <div className="mb-5 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-600 text-white">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-700 to-primary-950 text-amber-300 ring-1 ring-amber-400/50">
             <GraduationCap className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-surface-900 dark:text-surface-50">
-              Sign In <span className="ta text-primary-600 dark:text-primary-400">/ உள்நுழைவு</span>
+            <h1 className="text-xl font-bold text-primary-900 dark:text-surface-50">
+              Sign In <span className="ta text-amber-600 dark:text-amber-300">/ உள்நுழைவு</span>
             </h1>
             <p className="text-xs text-surface-500 dark:text-surface-400">APTA Empowers staff & student portal</p>
           </div>

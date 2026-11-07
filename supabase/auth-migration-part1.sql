@@ -11,7 +11,8 @@
 --      or confirmation-page flow yet; users can log in immediately after signup).
 --   3. Authentication → URL Configuration → Site URL:
 --      https://khan-0910.github.io/APTA-funding/
---   4. Run this script, then tell the assistant to continue (it verifies via API).
+--   4. Run this script, then run part1b.sql (trigger fix), then tell the
+--      assistant to continue (it verifies via API).
 
 -- ---------- 1) Link column: user_accounts.auth_uid -> auth.users.id ----------
 alter table user_accounts add column if not exists auth_uid uuid;

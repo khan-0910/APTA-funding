@@ -49,14 +49,14 @@ export function RegisterPage() {
 
   return (
     <div className="mx-auto max-w-md py-6">
-      <div className="glass-card p-7">
+      <div className="glass-card relative overflow-hidden p-7 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-gradient-to-r before:from-primary-800 before:via-amber-400 before:to-primary-800">
         <div className="mb-5 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500 text-white">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400 text-primary-950 ring-1 ring-amber-600/30">
             <HeartHandshake className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-surface-900 dark:text-surface-50">
-              Register <span className="ta text-primary-600 dark:text-primary-400">/ பதிவு செய்யுங்கள்</span>
+            <h1 className="text-xl font-bold text-primary-900 dark:text-surface-50">
+              Register <span className="ta text-amber-600 dark:text-amber-300">/ பதிவு செய்யுங்கள்</span>
             </h1>
             <p className="text-xs text-surface-500 dark:text-surface-400">Create your APTA Empowers account</p>
           </div>

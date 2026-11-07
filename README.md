@@ -49,7 +49,7 @@ One-time migration runbook (Dashboard → SQL Editor + Authentication settings):
    - Providers → keep **Email** enabled.
    - Sign In / Up → turn **OFF “Confirm email”** (no SMTP/confirmation flow yet).
    - URL Configuration → Site URL: `https://khan-0910.github.io/APTA-funding/`.
-2. **Run `supabase/auth-migration-part1.sql`** (idempotent, backwards-safe): adds
+2. **Run `supabase/auth-migration-part1.sql`, then `supabase/auth-migration-part1b.sql`** (idempotent, backwards-safe): adds
    `user_accounts.auth_uid`, authenticated-role policies (deletes admin-only), and a
    signup trigger that auto-creates the profile row — always with role `student`;
    client-supplied roles are never trusted.
@@ -67,6 +67,24 @@ One-time migration runbook (Dashboard → SQL Editor + Authentication settings):
    policies so every table requires a real Auth session; keep a read-only policy for the
    landing-page stats. Script: `supabase/auth-migration-part2.sql`.
 
+### Go-live checklist
+
+0. **Project is awake.** Free-tier Supabase projects pause after inactivity. When paused, the
+   `<ref>.supabase.co` host stops resolving and the live site silently shows empty data. Open
+   the dashboard and click **Restore project** if you see a paused banner.
+1. Dashboard → Authentication settings as above (Email on, Confirm email off, Site URL set).
+2. SQL Editor → run **part1**, then **part1b**.
+   Check: `select count(*) from user_accounts where auth_uid is not null;`
+3. Sign up / link the admin + staff emails (step 3 above), then **sign in on the live site** as
+   admin and confirm the dashboards show data.
+4. SQL Editor → run **part2** (lockdown).
+   Check: open the live site in a private window. The landing stats still load (via the
+   `apta_public_stats()` RPC), but `/dashboard/beneficiaries` shows nothing until you sign in.
+5. Push to `main`. GitHub Actions builds and deploys to Pages.
+
+After part 2 the app re-fetches all tables on every Supabase sign-in/sign-out, so signed-in
+users get their data immediately and a shared computer is cleared on sign-out.
+
 ## Feature Map
 
 - **Landing (`/`)** — bilingual hero, live impact stats computed from your data, 3-step How It Works.
@@ -83,7 +101,9 @@ One-time migration runbook (Dashboard → SQL Editor + Authentication settings):
 ## Architecture
 
 - React 18 + TypeScript (strict) + Vite + React Router v6.
-- Tailwind CSS v4 (`@custom-variant dark`) with the APTA palette: deep teal `primary`, warm amber accent, slate surfaces. Glassmorphic cards (`.glass-card`, `.glass-sidebar`), persistent dark mode (`apta-theme`).
+- Tailwind CSS v4 (`@custom-variant dark`) with the APTA school palette: navy `primary`, academic gold (Tailwind's `amber-*` scale is overridden with gold, so every accent follows), cool slate `surface` neutrals. Source Serif 4 headings, Inter body, Noto Sans Tamil. Cards (`.glass-card`, `.card-hover`), navy sidebar (`.glass-sidebar`), persistent dark mode (`apta-theme`).
+- Motion is CSS-only (`src/index.css` → *Motion*, hooks in `src/lib/motion.ts`): route fade-up, staggered card entrance, scroll reveal, count-up stats, modal/drawer transitions, one-pass button sheen. Everything is disabled under `prefers-reduced-motion`.
+- The header **DEV role switcher only exists in `npm run dev`**. Production builds always use the role stored on the account.
 - **Dual-layer persistence**: Supabase PostgreSQL is the source of truth when configured (hydrate on load + push on every mutation, all 7 tables). Otherwise localStorage (`apta-*` keys) is used with zero seed data. 200–300 ms simulated latency keeps interactions consistent. See `supabase/schema.sql` (RLS included).
 - Icons: lucide-react. Charts: Recharts.
 

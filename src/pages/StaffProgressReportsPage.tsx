@@ -44,9 +44,9 @@ export function StaffProgressReportsPage() {
       {store.progressReports.length === 0 ? (
         <EmptyState icon={<ClipboardCheck className="h-8 w-8 text-surface-300" />} title="No reports" titleTa="அறிக்கைகள் இல்லை" />
       ) : (
-        <div className="grid gap-4">
+        <div className="stagger grid gap-4">
           {store.progressReports.map((r) => (
-            <div key={r.id} className="glass-card p-5">
+            <div key={r.id} className="glass-card card-hover p-5">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-bold text-surface-900 dark:text-surface-50">

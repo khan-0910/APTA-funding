@@ -3,75 +3,137 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary-50: #f0fdfa;
-  --color-primary-100: #ccfbf1;
-  --color-primary-200: #99f6e4;
-  --color-primary-300: #5eead4;
-  --color-primary-400: #2dd4bf;
-  --color-primary-500: #14b8a6;
-  --color-primary-600: #0d9488;
-  --color-primary-700: #0f766e;
-  --color-primary-800: #115e59;
-  --color-primary-900: #134e4a;
-  --color-primary-950: #042f2e;
+  /* Navy — the institution colour */
+  --color-primary-50: #eef3fb;
+  --color-primary-100: #d9e4f5;
+  --color-primary-200: #b6cbeb;
+  --color-primary-300: #87a8dc;
+  --color-primary-400: #6690d8;
+  --color-primary-500: #3b6fd1;
+  --color-primary-600: #234a94;
+  --color-primary-700: #1c3b78;
+  --color-primary-800: #172f5f;
+  --color-primary-900: #12244a;
+  --color-primary-950: #0a1630;
 
-  --color-amber-accent: #f59e0b;
+  /* Academic gold — overrides Tailwind's amber so every existing accent follows */
+  --color-amber-50: #fdf9ec;
+  --color-amber-100: #f9efcc;
+  --color-amber-200: #f2dd96;
+  --color-amber-300: #eac65c;
+  --color-amber-400: #e2b13a;
+  --color-amber-500: #c9971f;
+  --color-amber-600: #a97a16;
+  --color-amber-700: #875e15;
+  --color-amber-800: #6f4c18;
+  --color-amber-900: #5e4019;
+  --color-amber-950: #36220a;
+  --color-amber-accent: #c9971f;
 
-  --color-surface-50: #eafff6;
-  --color-surface-100: #c9ffe6;
-  --color-surface-200: #9effd3;
-  --color-surface-300: #5fffbf;
-  --color-surface-400: #00c489;
-  --color-surface-500: #009468;
-  --color-surface-600: #007a56;
-  --color-surface-700: #0b6650;
-  --color-surface-800: #062e28;
-  --color-surface-900: #04211d;
-  --color-surface-950: #021512;
+  /* Cool slate neutrals with a faint navy tint */
+  --color-surface-50: #f7f8fb;
+  --color-surface-100: #eef1f6;
+  --color-surface-200: #dfe4ed;
+  --color-surface-300: #c5cdda;
+  --color-surface-400: #94a0b5;
+  --color-surface-500: #67738a;
+  --color-surface-600: #4c5770;
+  --color-surface-700: #3a445b;
+  --color-surface-800: #252e42;
+  --color-surface-900: #161e31;
+  --color-surface-950: #0b1222;
 
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Tamil", sans-serif;
+  --font-display: "Source Serif 4", "Georgia", "Times New Roman", serif;
   --font-tamil: "Noto Sans Tamil", "Latha", "InaiMathi", system-ui, sans-serif;
+
+  --ease-out-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 html {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  font-family: var(--font-sans);
 }
 
 body {
   @apply text-surface-900 antialiased dark:text-surface-100;
-  background-color: var(--color-surface-100);
+  background-color: var(--color-surface-50);
   background-image:
-    radial-gradient(60rem 42rem at 12% -12%, rgba(0, 255, 190, 0.55), transparent 62%),
-    radial-gradient(52rem 38rem at 92% -6%, rgba(95, 255, 191, 0.45), transparent 58%),
-    radial-gradient(72rem 50rem at 50% 118%, rgba(0, 255, 150, 0.35), transparent 62%);
+    radial-gradient(60rem 40rem at 10% -10%, rgba(35, 74, 148, 0.09), transparent 60%),
+    radial-gradient(48rem 34rem at 95% -5%, rgba(201, 151, 31, 0.08), transparent 58%),
+    radial-gradient(70rem 46rem at 50% 120%, rgba(35, 74, 148, 0.06), transparent 62%);
   background-attachment: fixed;
 }
 
 .dark body {
-  background-color: var(--color-surface-950);
+  background-color: var(--color-primary-950);
   background-image:
-    radial-gradient(60rem 42rem at 12% -12%, rgba(0, 255, 190, 0.12), transparent 62%),
-    radial-gradient(52rem 38rem at 88% -6%, rgba(95, 255, 191, 0.09), transparent 58%);
+    radial-gradient(60rem 40rem at 10% -10%, rgba(59, 111, 209, 0.16), transparent 60%),
+    radial-gradient(48rem 34rem at 92% -6%, rgba(201, 151, 31, 0.08), transparent 58%);
+}
+
+h1,
+h2,
+h3,
+.font-display,
+.section-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+/* Tamil text inside headings should stay in the Tamil face */
+h1 .ta,
+h2 .ta,
+h3 .ta {
+  font-family: var(--font-tamil);
+  letter-spacing: 0;
 }
 
 ::selection {
-  background-color: #5fffbf;
-  color: #04211d;
+  background-color: #e2b13a;
+  color: #0a1630;
 }
 
 .ta {
   font-family: var(--font-tamil);
 }
 
+/* ------------------------------------------------------------------ */
+/* Surfaces                                                            */
+/* ------------------------------------------------------------------ */
+
 .glass-card {
-  @apply rounded-2xl border border-primary-500/30 bg-white/55 shadow-lg shadow-primary-500/15 backdrop-blur-xl dark:border-surface-800 dark:bg-surface-900/85 dark:shadow-lg dark:shadow-black/30;
+  @apply rounded-2xl border border-surface-200/90 bg-white/90 shadow-[0_1px_2px_rgba(18,36,74,0.05),0_8px_24px_-12px_rgba(18,36,74,0.18)] backdrop-blur-xl dark:border-white/[0.07] dark:bg-surface-900/80 dark:shadow-[0_1px_2px_rgba(0,0,0,0.3),0_12px_32px_-16px_rgba(0,0,0,0.6)];
 }
 
 .glass-sidebar {
-  @apply border-r border-primary-500/25 bg-white/60 backdrop-blur-xl dark:border-surface-800 dark:bg-surface-900/85;
+  @apply border-r border-white/10 bg-primary-900 text-white dark:bg-surface-950;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 40%),
+    radial-gradient(30rem 20rem at 0% 100%, rgba(201, 151, 31, 0.1), transparent 70%);
 }
 
+/* Interactive card lift — opt in with .card-hover */
+.card-hover {
+  transition:
+    transform 180ms var(--ease-out-soft),
+    box-shadow 180ms var(--ease-out-soft),
+    border-color 180ms var(--ease-out-soft);
+}
+@media (hover: hover) {
+  .card-hover:hover {
+    transform: translateY(-2px);
+    border-color: rgba(201, 151, 31, 0.45);
+    box-shadow:
+      0 1px 2px rgba(18, 36, 74, 0.06),
+      0 16px 32px -14px rgba(18, 36, 74, 0.28);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Forms & buttons                                                     */
+/* ------------------------------------------------------------------ */
+
 .input-base {
-  @apply w-full rounded-lg border border-surface-300 bg-white px-3 py-2 text-sm text-surface-900 shadow-sm outline-none transition placeholder:text-surface-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 dark:border-surface-700 dark:bg-surface-900/70 dark:text-surface-100 dark:placeholder:text-surface-500;
+  @apply w-full rounded-lg border border-surface-300 bg-white px-3 py-2 text-sm text-surface-900 shadow-sm outline-none transition placeholder:text-surface-400 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/20 dark:border-surface-700 dark:bg-surface-900/70 dark:text-surface-100 dark:placeholder:text-surface-500 dark:focus:border-primary-400 dark:focus:ring-primary-400/25;
 }
 
 .label-bilingual {
@@ -82,20 +144,60 @@ body {
   @apply mt-0.5 block font-normal text-surface-500 dark:text-surface-400;
 }
 
+.btn-primary,
+.btn-accent,
+.btn-ghost,
+.btn-danger {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+.btn-primary:active:not(:disabled),
+.btn-accent:active:not(:disabled),
+.btn-ghost:active:not(:disabled),
+.btn-danger:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
 .btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-[0_0_18px_rgba(20,220,170,0.5)] transition hover:bg-primary-700 hover:shadow-[0_0_24px_rgba(20,220,170,0.7)] focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-primary-900/20 hover:bg-primary-800 hover:shadow-md hover:shadow-primary-900/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-primary-600 dark:hover:bg-primary-500 dark:focus-visible:ring-offset-surface-950;
 }
 
 .btn-accent {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-primary-950 shadow-sm shadow-amber-700/20 hover:bg-amber-300 hover:shadow-md hover:shadow-amber-700/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:focus-visible:ring-amber-200 dark:focus-visible:ring-offset-surface-950;
+}
+
+/* One-pass sheen across filled buttons on hover */
+.btn-primary::after,
+.btn-accent::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .btn-primary:hover:not(:disabled)::after,
+  .btn-accent:hover:not(:disabled)::after {
+    transform: translateX(120%);
+    transition: transform 700ms var(--ease-out-soft);
+  }
 }
 
 .btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-surface-300 bg-transparent px-4 py-2 text-sm font-semibold text-surface-700 transition hover:bg-surface-100 focus:outline-none focus:ring-2 focus:ring-surface-400/40 dark:border-surface-700 dark:text-surface-200 dark:hover:bg-surface-800;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-surface-300 bg-white/60 px-4 py-2 text-sm font-semibold text-primary-800 hover:border-primary-300 hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600/40 dark:border-surface-700 dark:bg-transparent dark:text-surface-100 dark:hover:border-surface-600 dark:hover:bg-surface-800;
 }
 
 .btn-danger {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .badge {
@@ -103,8 +205,187 @@ body {
 }
 
 .section-title {
-  @apply text-lg font-bold text-surface-900 dark:text-surface-100;
+  @apply text-lg font-bold text-primary-900 dark:text-surface-50;
 }
+
+/* Small-caps label above headings */
+.eyebrow {
+  @apply inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-600 dark:text-amber-300;
+}
+
+/* Decorative gold rule under headings */
+.gold-rule {
+  display: block;
+  height: 3px;
+  width: 3.5rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #c9971f, #e2b13a 60%, rgba(226, 177, 58, 0));
+}
+
+/* ------------------------------------------------------------------ */
+/* Motion                                                              */
+/* ------------------------------------------------------------------ */
+
+@keyframes apta-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes apta-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes apta-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes apta-sheet {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes apta-drawer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes apta-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes apta-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(2.5rem, 1.5rem, 0);
+  }
+}
+
+.page-enter {
+  animation: apta-rise 320ms var(--ease-out-soft) backwards;
+}
+
+.anim-fade {
+  animation: apta-fade 200ms ease-out both;
+}
+
+.anim-pop {
+  animation: apta-pop 220ms var(--ease-out-soft) both;
+}
+
+@media (max-width: 639px) {
+  .anim-pop {
+    animation-name: apta-sheet;
+  }
+}
+
+.anim-drawer {
+  animation: apta-drawer 260ms var(--ease-out-soft) backwards;
+}
+
+.anim-draw {
+  transform-origin: left center;
+  animation: apta-draw 700ms 200ms var(--ease-out-soft) both;
+}
+
+.anim-drift {
+  animation: apta-drift 22s ease-in-out infinite;
+}
+.anim-drift-slow {
+  animation: apta-drift 30s ease-in-out infinite reverse;
+}
+
+/* Scroll reveal: elements start hidden only when JS has marked the page ready */
+.reveal-ready .reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 560ms var(--ease-out-soft),
+    transform 560ms var(--ease-out-soft);
+  transition-delay: calc(min(var(--i, 0), 6) * 70ms);
+}
+.reveal-ready .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Staggered entrance for direct children (lists, grids).
+   Fill mode is "backwards" on purpose: a lingering transform (even identity) would
+   turn the element into the containing block for position:fixed modals inside it. */
+.stagger > * {
+  animation: apta-rise 420ms var(--ease-out-soft) backwards;
+}
+.stagger > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+.stagger > *:nth-child(3) {
+  animation-delay: 100ms;
+}
+.stagger > *:nth-child(4) {
+  animation-delay: 150ms;
+}
+.stagger > *:nth-child(5) {
+  animation-delay: 200ms;
+}
+.stagger > *:nth-child(n + 6) {
+  animation-delay: 250ms;
+}
+.stagger > .anim-draw {
+  transform-origin: left center;
+  animation: apta-draw 700ms 260ms var(--ease-out-soft) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
+  .reveal-ready .reveal {
+    opacity: 1;
+    transform: none;
+  }
+  .card-hover:hover {
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Print                                                               */
+/* ------------------------------------------------------------------ */
 
 @media print {
   body {
@@ -119,12 +400,17 @@ body {
   }
   main {
     overflow: visible !important;
+    animation: none !important;
   }
   .glass-card {
     border: 1px solid #cbd5e1 !important;
     background: white !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
+  }
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 
@@ -137,7 +423,11 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-surface-300 dark:bg-surface-700;
+  border-radius: 999px;
+  background-color: var(--color-surface-300);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background-color: var(--color-surface-700);
 }
 ::-webkit-scrollbar-track {
   background: transparent;

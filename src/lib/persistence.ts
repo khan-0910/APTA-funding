@@ -139,6 +139,41 @@ export async function fetchAuthUserRow(
   return { row: byId.data ? fromDbAccount(byId.data) : null, error: null }
 }
 
+/** Aggregate, PII-free numbers for the public landing page. */
+export interface PublicStats {
+  studentsFunded: number
+  amountDisbursed: number
+  inflowTotal: number
+  graduated: number
+  employed: number
+  partners: number
+}
+
+/**
+ * Landing-page stats via the `apta_public_stats()` RPC (auth-migration-part2.sql).
+ * This keeps the public homepage working after anonymous table reads are locked down.
+ * Returns null when Supabase isn't configured or the function isn't installed yet.
+ */
+export async function fetchPublicStats(): Promise<PublicStats | null> {
+  if (!supabase) return null
+  try {
+    const { data, error } = await supabase.rpc('apta_public_stats')
+    if (error || !data || typeof data !== 'object') return null
+    const d = data as Record<string, unknown>
+    const n = (k: string) => Number(d[k] ?? 0) || 0
+    return {
+      studentsFunded: n('studentsFunded'),
+      amountDisbursed: n('amountDisbursed'),
+      inflowTotal: n('inflowTotal'),
+      graduated: n('graduated'),
+      employed: n('employed'),
+      partners: n('partners'),
+    }
+  } catch {
+    return null
+  }
+}
+
 /** Anonymous diagnostic: can the anon key read user_accounts right now? */
 export async function probeAnonAccountsRead(): Promise<boolean> {
   if (!supabase) return false

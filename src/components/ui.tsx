@@ -34,13 +34,14 @@ export function PageHeader({
   actions?: ReactNode
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+    <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-surface-900 dark:text-surface-50">
-          {title} <span className="ta text-lg font-semibold text-primary-600 dark:text-primary-400">/ {titleTa}</span>
+        <h1 className="text-2xl font-bold tracking-tight text-primary-900 sm:text-[1.7rem] dark:text-surface-50">
+          {title} <span className="ta text-lg font-semibold text-amber-600 dark:text-amber-300">/ {titleTa}</span>
         </h1>
+        <span className="gold-rule anim-draw mt-2.5" aria-hidden="true" />
         {subtitle && (
-          <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">
+          <p className="mt-2.5 text-sm text-surface-500 dark:text-surface-400">
             {subtitle}
             {subtitleTa && <span className={`ta`}> / {subtitleTa}</span>}
           </p>
@@ -98,11 +99,11 @@ export function SectionCard({
       <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
         <h2 className="section-title flex items-center gap-2">
           {number !== undefined && (
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600/10 text-sm font-bold text-primary-700 dark:bg-primary-400/10 dark:text-primary-300">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-800 font-sans text-sm font-bold text-amber-300 ring-1 ring-amber-400/50 dark:bg-primary-700">
               {number}
             </span>
           )}
-          {title} <span className={`ta text-sm font-semibold text-primary-600 dark:text-primary-400`}>/ {titleTa}</span>
+          {title} <span className={`ta text-sm font-semibold text-amber-600 dark:text-amber-300`}>/ {titleTa}</span>
         </h2>
         {actions}
       </div>
@@ -113,7 +114,7 @@ export function SectionCard({
 
 const STATUS_STYLES: Record<ApplicationStatus, string> = {
   draft: 'bg-surface-200 text-surface-700 dark:bg-surface-700/60 dark:text-surface-200',
-  submitted: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+  submitted: 'bg-primary-100 text-primary-800 dark:bg-primary-400/15 dark:text-primary-200',
   under_review: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
   approved: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
   rejected: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
@@ -204,17 +205,19 @@ export function Modal({
 }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-surface-950/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+    <div className="anim-fade fixed inset-0 z-50 flex items-end justify-center bg-primary-950/55 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div
-        className={`glass-card max-h-[92vh] w-full overflow-y-auto rounded-b-none rounded-t-2xl sm:rounded-2xl ${
+        role="dialog"
+        aria-modal="true"
+        className={`glass-card anim-pop max-h-[92vh] w-full overflow-y-auto rounded-b-none rounded-t-2xl sm:rounded-2xl ${
           wide ? 'sm:max-w-3xl' : 'sm:max-w-lg'
         }`}
       >
         <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-surface-200/70 bg-white/85 px-5 py-4 backdrop-blur dark:border-surface-800 dark:bg-surface-900/90">
-          <h3 className="text-base font-bold text-surface-900 dark:text-surface-50">
+          <h3 className="text-base font-bold text-primary-900 dark:text-surface-50">
             {title}
             {titleTa && (
-              <span className={`ta ml-2 text-sm font-semibold text-primary-600 dark:text-primary-400`}>/ {titleTa}</span>
+              <span className={`ta ml-2 text-sm font-semibold text-amber-600 dark:text-amber-300`}>/ {titleTa}</span>
             )}
           </h3>
           <button
@@ -247,19 +250,19 @@ export function KpiCard({
   tone?: 'primary' | 'amber' | 'emerald' | 'sky'
 }) {
   const tones: Record<string, string> = {
-    primary: 'bg-primary-600/10 text-primary-700 dark:bg-primary-400/10 dark:text-primary-300',
-    amber: 'bg-amber-500/10 text-amber-600 dark:bg-amber-400/10 dark:text-amber-300',
+    primary: 'bg-primary-800 text-amber-300 dark:bg-primary-700 dark:text-amber-200',
+    amber: 'bg-amber-400/20 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300',
     emerald: 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-300',
     sky: 'bg-sky-500/10 text-sky-600 dark:bg-sky-400/10 dark:text-sky-300',
   }
   return (
-    <div className="glass-card flex items-center gap-4 p-4">
+    <div className="glass-card card-hover flex items-center gap-4 p-4">
       <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}>{icon}</div>
       <div className="min-w-0">
         <p className="truncate text-xs font-medium text-surface-500 dark:text-surface-400">
           {label} <span className="ta">/ {labelTa}</span>
         </p>
-        <p className="text-xl font-bold tracking-tight text-surface-900 dark:text-surface-50">{value}</p>
+        <p className="font-display text-xl font-bold tracking-tight text-primary-900 dark:text-surface-50">{value}</p>
         {sub && <p className="truncate text-xs text-surface-400">{sub}</p>}
       </div>
     </div>

@@ -314,7 +314,7 @@ function Section({ title, titleTa, children }: { title: string; titleTa: string;
   return (
     <section className="glass-card p-5">
       <h2 className="section-title mb-4 text-base">
-        {title} <span className="ta text-sm font-semibold text-primary-600 dark:text-primary-400">/ {titleTa}</span>
+        {title} <span className="ta text-sm font-semibold text-amber-600 dark:text-amber-300">/ {titleTa}</span>
       </h2>
       {children}
     </section>

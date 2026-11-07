@@ -87,7 +87,7 @@ export function AccountingPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard icon={<ArrowDownLeft className="h-5.5 w-5.5" />} label="Total In" labelTa="மொத்த வரவு" value={formatINR(metrics.totalIn, { compact: true })} tone="emerald" />
         <KpiCard icon={<ArrowUpRight className="h-5.5 w-5.5" />} label="Total Out" labelTa="மொத்த செலவு" value={formatINR(metrics.totalOut, { compact: true })} tone="amber" />
         <KpiCard icon={<Landmark className="h-5.5 w-5.5" />} label="Net Balance" labelTa="நிகர இருப்பு" value={formatINR(metrics.net, { compact: true })} tone="primary" />

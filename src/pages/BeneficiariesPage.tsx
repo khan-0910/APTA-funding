@@ -108,7 +108,7 @@ export function BeneficiariesPage() {
       />
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard icon={<BadgeIndianRupee className="h-5.5 w-5.5" />} label="Total Funding Distributed" labelTa="மொத்த நிதி" value={formatINR(kpis.total, { compact: true })} tone="primary" />
         <KpiCard icon={<Users className="h-5.5 w-5.5" />} label="Active Beneficiaries" labelTa="செயலில் உள்ளோர்" value={String(kpis.active)} tone="sky" />
         <KpiCard icon={<GraduationCap className="h-5.5 w-5.5" />} label="Completed Programs" labelTa="நிறைவு பெற்றோர்" value={String(kpis.completed)} tone="emerald" />
@@ -118,7 +118,7 @@ export function BeneficiariesPage() {
       {/* Placement tracker */}
       <div className="glass-card mt-6 p-5">
         <h2 className="section-title mb-4">
-          Post-Graduation & Career Placement Tracker / <span className="ta text-primary-600 dark:text-primary-400">பட்டதாரி வேலைவாய்ப்பு கண்காணிப்பு</span>
+          Post-Graduation & Career Placement Tracker / <span className="ta text-amber-600 dark:text-amber-300">பட்டதாரி வேலைவாய்ப்பு கண்காணிப்பு</span>
         </h2>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl bg-emerald-500/10 p-4">
@@ -173,20 +173,20 @@ export function BeneficiariesPage() {
               <AreaChart data={trajectory} margin={{ top: 5, right: 8, bottom: 0, left: 8 }}>
                 <defs>
                   <linearGradient id="gOut" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#0d9488" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="#0d9488" stopOpacity={0.05} />
+                    <stop offset="0%" stopColor="#3b6fd1" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#3b6fd1" stopOpacity={0.05} />
                   </linearGradient>
                   <linearGradient id="gCum" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.05} />
+                    <stop offset="0%" stopColor="#d4a22a" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#d4a22a" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#94a3b855" />
                 <XAxis dataKey="month" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v: number) => formatINR(v, { compact: true })} />
                 <Tooltip formatter={(v) => formatINR(Number(v))} />
-                <Area type="monotone" dataKey="outflow" name="Monthly Disbursement" stroke="#0d9488" fill="url(#gOut)" strokeWidth={2} />
-                <Area type="monotone" dataKey="cumulative" name="Cumulative" stroke="#f59e0b" fill="url(#gCum)" strokeWidth={2} />
+                <Area type="monotone" dataKey="outflow" name="Monthly Disbursement" stroke="#3b6fd1" fill="url(#gOut)" strokeWidth={2} />
+                <Area type="monotone" dataKey="cumulative" name="Cumulative" stroke="#d4a22a" fill="url(#gCum)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -210,7 +210,7 @@ export function BeneficiariesPage() {
                 <XAxis type="number" fontSize={11} tickFormatter={(v: number) => formatINR(v, { compact: true })} />
                 <YAxis type="category" dataKey="name" fontSize={11} width={90} tickLine={false} axisLine={false} />
                 <Tooltip formatter={(v) => formatINR(Number(v))} />
-                <Bar dataKey="amount" fill="#0d9488" radius={[0, 6, 6, 0]} barSize={18} />
+                <Bar dataKey="amount" fill="#3b6fd1" radius={[0, 6, 6, 0]} barSize={18} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -226,7 +226,7 @@ export function BeneficiariesPage() {
       <div className="glass-card mt-6 overflow-hidden">
         <div className="p-5 pb-3">
           <h2 className="section-title">
-            Beneficiary Roster / <span className="ta text-primary-600 dark:text-primary-400">பயனாளிகள் பட்டியல்</span>
+            Beneficiary Roster / <span className="ta text-amber-600 dark:text-amber-300">பயனாளிகள் பட்டியல்</span>
           </h2>
         </div>
         {store.beneficiaries.length === 0 ? (

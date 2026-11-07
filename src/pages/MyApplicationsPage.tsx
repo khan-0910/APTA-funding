@@ -119,7 +119,7 @@ export function MyApplicationsPage() {
           titleTa="விண்ணப்பங்கள் இல்லை"
         />
       ) : (
-        <div className="grid gap-4">
+        <div className="stagger grid gap-4">
           {visible.map((a) => (
             <ApplicationCard key={a.id} app={a} onOpen={() => navigate(`/applications/${a.id}`)} />
           ))}

@@ -68,7 +68,7 @@ export function PartnersPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="stagger grid gap-4 sm:grid-cols-3">
         <KpiCard icon={<Handshake className="h-5.5 w-5.5" />} label="Total Partners" labelTa="மொத்த கூட்டாளர்கள்" value={String(store.partners.length)} tone="primary" />
         <KpiCard icon={<Building2 className="h-5.5 w-5.5" />} label="Lifetime Contributions" labelTa="மொத்த பங்களிப்பு" value={formatINR(total, { compact: true })} tone="emerald" />
         <KpiCard
@@ -87,7 +87,7 @@ export function PartnersPage() {
           </div>
         )}
         {store.partners.map((p) => (
-          <div key={p.id} className="glass-card p-5">
+          <div key={p.id} className="glass-card card-hover p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-600/10 text-primary-700 dark:text-primary-300">
