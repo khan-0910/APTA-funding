@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { T } from '@/lib/lang'
 import { GraduationCap, KeyRound } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
@@ -7,7 +7,7 @@ import { Field } from '@/components/ui'
 import { CAPTCHA_ON, Captcha } from '@/components/Captcha'
 
 export function LoginPage() {
-  const { signIn, resetPassword } = useAuth()
+  const { user, signIn, resetPassword } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -43,6 +43,8 @@ export function LoginPage() {
     if (res.ok) setResetSent(true)
     else setError(res.error ?? 'Could not send reset email.')
   }
+
+  if (user) return <Navigate to="/applications" replace />
 
   return (
     <div className="mx-auto max-w-md py-6">

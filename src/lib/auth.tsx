@@ -66,15 +66,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void (async () => {
       let storedUserId: string | null = null
       let storedDevRole: UserRole | null = null
+      let storedAuthUid: string | null = null
       try {
         const raw = window.localStorage.getItem(SESSION_KEY) as string | null
         if (raw) {
           const session = JSON.parse(raw) as RawSession
           storedUserId = session.userId
           storedDevRole = DEV_TOOLS ? (session.devRoleOverride ?? null) : null
-          setUserId(session.userId)
+          if (!supabase) setUserId(session.userId) // with a database, wait for Supabase to confirm below
           setDevRoleOverride(storedDevRole)
-          setAuthUid(session.authUid ?? null)
+          storedAuthUid = session.authUid ?? null
+          setAuthUid(storedAuthUid)
         }
       } catch {
         /* ignore corrupt session */
@@ -84,6 +86,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { data } = await supabase.auth.getSession()
           const token = data.session?.access_token
           const uid = token ? decodeJwtSub(token) : null
+          // With a live database only a real Supabase login counts: a leftover saved
+          // session (expired login, or another person's) must not show signed-in menus.
+          if (!cancelled && (!uid || (storedAuthUid && storedAuthUid !== uid))) {
+            storedUserId = null
+            setUserId(null)
+            setAuthUid(null)
+            setDevRoleOverride(null)
+            window.localStorage.removeItem(SESSION_KEY)
+          }
           if (uid && !cancelled) {
             const { row } = await fetchAuthUserRow(storedUserId ?? '')
             if (row) {
